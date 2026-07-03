@@ -17,22 +17,23 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { UserProfile, useUser } from '../context/UserContext';
 
-const InfoRow = ({ 
-  label, 
-  value, 
-  onChangeText, 
-  isEditing, 
-  isLast = false, 
-  multiline = false 
-}: { 
-  label: string;
-  value: string;
-  onChangeText: (text: string) => void;
-  isEditing: boolean;
-  isLast?: boolean;
-  multiline?: boolean;
-}) => (
-  <View>
+// Theme Constants
+const BG_COLOR = '#EBEEF2';
+const RED_ACCENT = '#9E3641'; // DULL, MUTED RED
+const TEXT_DARK = '#2D3142';
+const TEXT_MUTED = '#8E94A3';
+
+// Neomorphism Helper Component
+const NeoView = ({ children, containerStyle, innerStyle, borderRadius = 16 }: any) => (
+  <View style={[styles.neoDark, { borderRadius }, containerStyle]}>
+    <View style={[styles.neoLight, { borderRadius }, innerStyle]}>
+      {children}
+    </View>
+  </View>
+);
+
+const InfoRow = ({ label, value, onChangeText, isEditing, isLast = false, multiline = false }: any) => (
+  <View style={styles.rowContainer}>
     <View style={multiline ? styles.rowVertical : styles.row}>
       <Text style={styles.label}>{label}</Text>
       {isEditing ? (
@@ -41,7 +42,7 @@ const InfoRow = ({
           value={value}
           onChangeText={onChangeText}
           placeholder={`Enter ${label.toLowerCase()}`}
-          placeholderTextColor="#C7C7CC"
+          placeholderTextColor="#E0A8AE"
           multiline={multiline}
         />
       ) : (
@@ -56,28 +57,21 @@ const InfoRow = ({
 
 export default function ProfileScreen() {
   const router = useRouter();
-  
-  // Connect to the Global App State
   const { user: globalUser, setUser: setGlobalUser } = useUser();
   
-  // Local state for edits. It only updates the global state when "Save" is pressed.
   const [isEditing, setIsEditing] = useState(false);
   const [localUser, setLocalUser] = useState<UserProfile>(globalUser);
 
   const toggleEdit = () => {
-    if (isEditing) {
-      setGlobalUser(localUser); // Save changes globally
-    } else {
-      setLocalUser(globalUser); // Sync fresh data when starting to edit
-    }
+    if (isEditing) setGlobalUser(localUser);
+    else setLocalUser(globalUser);
     setIsEditing(!isEditing);
   };
 
   const handleUpdatePicture = () => {
     if (!isEditing) return;
     Alert.alert(
-      "Update Profile Picture",
-      "How would you like to select your picture?",
+      "Update Profile Picture", "How would you like to select your picture?",
       [
         { text: "Take Photo", onPress: openCamera },
         { text: "Choose from Gallery", onPress: openGallery },
@@ -87,104 +81,95 @@ export default function ProfileScreen() {
   };
 
   const openCamera = async () => {
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    if (permissionResult.granted === false) {
-      Alert.alert('Permission Denied', 'Camera access is required to take a photo.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-    });
-    if (!result.canceled) {
-      setLocalUser({ ...localUser, avatar: { uri: result.assets[0].uri } });
-    }
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) return Alert.alert('Denied', 'Camera access is required.');
+    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.5 });
+    if (!result.canceled) setLocalUser({ ...localUser, avatar: { uri: result.assets[0].uri } });
   };
 
   const openGallery = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permissionResult.granted === false) {
-      Alert.alert('Permission Denied', 'Gallery access is required to choose a photo.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-    });
-    if (!result.canceled) {
-      setLocalUser({ ...localUser, avatar: { uri: result.assets[0].uri } });
-    }
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return Alert.alert('Denied', 'Gallery access is required.');
+    const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.5 });
+    if (!result.canceled) setLocalUser({ ...localUser, avatar: { uri: result.assets[0].uri } });
   };
 
-  // Determine which user data to show (local if editing, global if just viewing)
   const displayUser = isEditing ? localUser : globalUser;
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        
+        {/* Neomorphic Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={28} color="#007AFF" />
-            <Text style={styles.headerButtonText}>Back</Text>
+          <TouchableOpacity onPress={() => router.back()}>
+            <NeoView containerStyle={styles.iconBtn} innerStyle={styles.iconBtnInner} borderRadius={20}>
+              <Ionicons name="chevron-back" size={24} color="#FFFFFF" style={{ marginLeft: -2 }} />
+            </NeoView>
           </TouchableOpacity>
           
           <Text style={styles.headerTitle}>Profile</Text>
           
-          <TouchableOpacity 
-            style={[styles.headerButton, { justifyContent: 'flex-end' }]} 
-            onPress={toggleEdit}
-          >
-            <Text style={[styles.headerButtonText, isEditing && styles.saveText]}>
-              {isEditing ? 'Save' : 'Edit'}
-            </Text>
+          <TouchableOpacity onPress={toggleEdit}>
+            <NeoView containerStyle={styles.editBtn} innerStyle={styles.editBtnInner} borderRadius={20}>
+              <Text style={styles.editBtnText}>
+                {isEditing ? 'Save' : 'Edit'}
+              </Text>
+            </NeoView>
           </TouchableOpacity>
         </View>
 
-        <ScrollView 
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-        >
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          
+          {/* Avatar Section */}
           <View style={styles.avatarContainer}>
-            <Image source={displayUser.avatar} style={styles.largeAvatar} />
-            {isEditing && (
-              <TouchableOpacity style={styles.editAvatarButton} onPress={handleUpdatePicture}>
-                <Ionicons name="camera" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-            )}
+            <NeoView containerStyle={styles.avatarWrapper} innerStyle={styles.avatarInnerWrapper} borderRadius={70}>
+              <Image source={displayUser.avatar} style={styles.largeAvatar} />
+              {isEditing && (
+                <TouchableOpacity style={styles.editAvatarButton} onPress={handleUpdatePicture}>
+                  <NeoView containerStyle={styles.camBtn} innerStyle={styles.camBtnInner} borderRadius={20}>
+                    <Ionicons name="camera" size={18} color="#FFFFFF" />
+                  </NeoView>
+                </TouchableOpacity>
+              )}
+            </NeoView>
+          </View>
+
+          {/* Info Sections */}
+          <View style={styles.section}>
+            {/* NEW SOLID RED SECTION BADGES */}
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionTitle}>PERSONAL INFO</Text>
+            </View>
+            <NeoView containerStyle={styles.cardShadow} innerStyle={styles.cardInner} borderRadius={24}>
+              <InfoRow label="Name" value={displayUser.name} onChangeText={(t: string) => setLocalUser({...localUser, name: t})} isEditing={isEditing} />
+              <InfoRow label="Surname" value={displayUser.surname} onChangeText={(t: string) => setLocalUser({...localUser, surname: t})} isEditing={isEditing} />
+              <InfoRow label="Age" value={displayUser.age} onChangeText={(t: string) => setLocalUser({...localUser, age: t})} isEditing={isEditing} />
+              <InfoRow label="Gender" value={displayUser.gender} onChangeText={(t: string) => setLocalUser({...localUser, gender: t})} isEditing={isEditing} />
+              <InfoRow label="Phone" value={displayUser.phone} onChangeText={(t: string) => setLocalUser({...localUser, phone: t})} isEditing={isEditing} isLast />
+            </NeoView>
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>PERSONAL INFO</Text>
-            <View style={styles.card}>
-              <InfoRow label="Name" value={displayUser.name} onChangeText={(text) => setLocalUser({...localUser, name: text})} isEditing={isEditing} />
-              <InfoRow label="Surname" value={displayUser.surname} onChangeText={(text) => setLocalUser({...localUser, surname: text})} isEditing={isEditing} />
-              <InfoRow label="Age" value={displayUser.age} onChangeText={(text) => setLocalUser({...localUser, age: text})} isEditing={isEditing} />
-              <InfoRow label="Gender" value={displayUser.gender} onChangeText={(text) => setLocalUser({...localUser, gender: text})} isEditing={isEditing} />
-              <InfoRow label="Phone" value={displayUser.phone} onChangeText={(text) => setLocalUser({...localUser, phone: text})} isEditing={isEditing} isLast={true} />
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionTitle}>EMERGENCY CONTACT</Text>
             </View>
+            <NeoView containerStyle={styles.cardShadow} innerStyle={styles.cardInner} borderRadius={24}>
+              <InfoRow label="Primary Contact" value={displayUser.emergencyContact} onChangeText={(t: string) => setLocalUser({...localUser, emergencyContact: t})} isEditing={isEditing} multiline isLast />
+            </NeoView>
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>EMERGENCY CONTACT</Text>
-            <View style={styles.card}>
-              <InfoRow label="Primary Contact" value={displayUser.emergencyContact} onChangeText={(text) => setLocalUser({...localUser, emergencyContact: text})} isEditing={isEditing} multiline={true} isLast={true} />
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionTitle}>MEDICAL INFORMATION</Text>
             </View>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>MEDICAL INFORMATION</Text>
-            <View style={styles.card}>
-              <InfoRow label="Blood Type" value={displayUser.bloodType} onChangeText={(text) => setLocalUser({...localUser, bloodType: text})} isEditing={isEditing} />
-              <InfoRow label="Medical Data" value={displayUser.medicalData} onChangeText={(text) => setLocalUser({...localUser, medicalData: text})} isEditing={isEditing} multiline={true} />
-              <InfoRow label="Health Issues" value={displayUser.healthIssues} onChangeText={(text) => setLocalUser({...localUser, healthIssues: text})} isEditing={isEditing} multiline={true} />
-              <InfoRow label="Disabilities" value={displayUser.disabilities} onChangeText={(text) => setLocalUser({...localUser, disabilities: text})} isEditing={isEditing} multiline={true} />
-              <InfoRow label="Other" value={displayUser.other} onChangeText={(text) => setLocalUser({...localUser, other: text})} isEditing={isEditing} multiline={true} isLast={true} />
-            </View>
+            <NeoView containerStyle={styles.cardShadow} innerStyle={styles.cardInner} borderRadius={24}>
+              <InfoRow label="Blood Type" value={displayUser.bloodType} onChangeText={(t: string) => setLocalUser({...localUser, bloodType: t})} isEditing={isEditing} />
+              <InfoRow label="Medical Data" value={displayUser.medicalData} onChangeText={(t: string) => setLocalUser({...localUser, medicalData: t})} isEditing={isEditing} multiline />
+              <InfoRow label="Health Issues" value={displayUser.healthIssues} onChangeText={(t: string) => setLocalUser({...localUser, healthIssues: t})} isEditing={isEditing} multiline />
+              <InfoRow label="Disabilities" value={displayUser.disabilities} onChangeText={(t: string) => setLocalUser({...localUser, disabilities: t})} isEditing={isEditing} multiline />
+              <InfoRow label="Other" value={displayUser.other} onChangeText={(t: string) => setLocalUser({...localUser, other: t})} isEditing={isEditing} multiline isLast />
+            </NeoView>
           </View>
 
           <View style={{ height: 60 }} />
@@ -195,42 +180,97 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
+  container: { flex: 1, backgroundColor: BG_COLOR },
+  
+  /* MAXED OUT SHADOWS TO POP MORE */
+  neoDark: {
+    backgroundColor: BG_COLOR,
+    shadowColor: '#8C9CB0', // Much darker shadow 
+    shadowOffset: { width: 12, height: 12 }, // Pushed further out
+    shadowOpacity: 1, // Max Opacity
+    shadowRadius: 16,
+    elevation: 15,
+  },
+  neoLight: {
+    backgroundColor: BG_COLOR,
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: -12, height: -12 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
+  },
+
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 8, paddingVertical: 12, backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1, borderBottomColor: '#E5E5EA',
+    paddingHorizontal: 20, paddingVertical: 12, backgroundColor: BG_COLOR,
   },
-  headerButton: { flexDirection: 'row', alignItems: 'center', width: 75 },
-  headerButtonText: { color: '#007AFF', fontSize: 17, marginLeft: -4 },
-  saveText: { fontWeight: '600' },
-  headerTitle: { fontSize: 17, fontWeight: '600', color: '#1C1C1E' },
-  content: { paddingVertical: 24 },
-  avatarContainer: { alignItems: 'center', marginBottom: 32 },
-  largeAvatar: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#E5E5EA' },
-  editAvatarButton: {
-    position: 'absolute', bottom: 0, right: '35%',
-    backgroundColor: '#007AFF', width: 38, height: 38, borderRadius: 19,
-    justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#F2F2F7',
-    elevation: 4, shadowColor: '#000', shadowOpacity: 0.2, shadowOffset: { width: 0, height: 2 }
+  iconBtn: { width: 40, height: 40 },
+  iconBtnInner: { 
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: RED_ACCENT, // SOLID DULL RED
+    borderRadius: 20
   },
-  section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 13, color: '#8E8E93', marginLeft: 16, marginBottom: 8, textTransform: 'uppercase' },
-  card: { backgroundColor: '#FFFFFF', borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#E5E5EA' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: TEXT_DARK },
+  editBtn: { minWidth: 70, height: 40 },
+  editBtnInner: { 
+    flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12,
+    backgroundColor: RED_ACCENT, // SOLID DULL RED
+    borderRadius: 20
+  },
+  editBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+
+  content: { paddingVertical: 24, paddingHorizontal: 16 },
   
-  // Left Alignment Styles
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16 },
-  rowVertical: { flexDirection: 'column', justifyContent: 'center', paddingVertical: 14, paddingHorizontal: 16 },
-  divider: { height: 1, backgroundColor: '#E5E5EA', marginLeft: 16 },
+  avatarContainer: { alignItems: 'center', marginBottom: 36, marginTop: 10 },
+  avatarWrapper: { padding: 6 },
+  avatarInnerWrapper: { 
+    padding: 4, borderRadius: 70,
+    borderWidth: 3, borderColor: RED_ACCENT 
+  },
+  largeAvatar: { width: 120, height: 120, borderRadius: 60 },
+  editAvatarButton: { position: 'absolute', bottom: -5, right: 0 },
+  camBtn: { width: 42, height: 42 },
+  camBtnInner: { 
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: RED_ACCENT, // SOLID DULL RED
+    borderRadius: 21,
+  },
+
+  section: { marginBottom: 32 },
+  sectionTitleContainer: {
+    backgroundColor: RED_ACCENT, // SOLID DULL RED BADGE
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 8,
+    marginLeft: 12, marginBottom: 12,
+  },
+  sectionTitle: { 
+    fontSize: 12, color: '#FFFFFF', fontWeight: '800', letterSpacing: 1.5 
+  },
+  cardShadow: { width: '100%' },
+  cardInner: { 
+    paddingVertical: 8,
+    borderWidth: 2, borderColor: RED_ACCENT
+  },
   
-  label: { width: 130, fontSize: 16, color: '#1C1C1E', fontWeight: '500' },
-  value: { flex: 1, fontSize: 16, color: '#8E8E93', textAlign: 'left' },
-  valueMultiline: { fontSize: 16, color: '#8E8E93', marginTop: 6, lineHeight: 22, textAlign: 'left' },
-  emptyValue: { color: '#C7C7CC', fontStyle: 'italic' },
+  rowContainer: { paddingHorizontal: 16 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
+  rowVertical: { flexDirection: 'column', justifyContent: 'center', paddingVertical: 14 },
+  divider: { height: 1, backgroundColor: '#FFFFFF', opacity: 0.5, marginHorizontal: 4 },
   
-  textInput: { flex: 1, fontSize: 16, color: '#007AFF', textAlign: 'left', padding: 0 },
+  label: { width: 130, fontSize: 16, color: TEXT_DARK, fontWeight: '700' },
+  value: { flex: 1, fontSize: 16, color: TEXT_MUTED, textAlign: 'left', fontWeight: '500' },
+  valueMultiline: { fontSize: 16, color: TEXT_MUTED, marginTop: 8, lineHeight: 22, textAlign: 'left', fontWeight: '500' },
+  emptyValue: { color: '#B0B5C0', fontStyle: 'italic' },
+  
+  /* NEW SOLID RED TEXT INPUT BLOCKS */
+  textInput: { 
+    flex: 1, fontSize: 16, color: '#FFFFFF', fontWeight: '600', textAlign: 'left', 
+    backgroundColor: RED_ACCENT, // SOLID DULL RED
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 
+  },
   textInputMultiline: {
-    textAlign: 'left', marginTop: 6, minHeight: 44,
-    backgroundColor: '#F2F2F7', borderRadius: 8, padding: 10, overflow: 'hidden'
+    textAlign: 'left', marginTop: 8, minHeight: 44, color: '#FFFFFF',
+    backgroundColor: RED_ACCENT, // SOLID DULL RED
+    borderRadius: 12, padding: 12, overflow: 'hidden'
   }
 });
