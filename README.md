@@ -8,31 +8,31 @@ Open a terminal in `chatbot/apps/backend`:
 
 # 1. Activate virtual environment
 # On macOS/Linux:
-source .venv/bin/activate
+```source .venv/bin/activate```
 # On Windows:
-# .venv\Scripts\activate
+```.venv\Scripts\activate```
 
 # 2. Set PYTHONPATH to the current directory
-export PYTHONPATH=$PYTHONPATH:.
+```export PYTHONPATH=$PYTHONPATH:.```
 
 # 3. Run the FastAPI server
-python -m uvicorn app.main:app --reload
+```python -m uvicorn app.main:app --reload```
 
 
 **Terminal 2: Start the Frontend**
 Open a new terminal in the project root folder (where your `package.json` is):
 
-npx expo start
+```npx expo start```
 
 
 **Terminal 3: USB Port Tunneling (For physical Android testing)**
 If testing via USB, open a fresh terminal on your laptop to bridge your local servers to your phone:
 
 # Tunnel Expo server
-adb reverse tcp:8081 tcp:8081
+```adb reverse tcp:8081 tcp:8081```
 
 # Tunnel FastAPI backend server
-adb reverse tcp:8000 tcp:8000
+```adb reverse tcp:8000 tcp:8000```
 
 *(Once running, press `a` in the Expo terminal to force it to open on your phone).*
 
@@ -44,25 +44,26 @@ If you are starting completely from scratch on a new machine, do this setup firs
 **Step 1: Install Frontend Dependencies**
 Open a terminal in the project root:
 
-npm install
+```npm install```
 
 
 **Step 2: Setup Python Environment**
 Open a terminal in `chatbot/apps/backend`:
 
 # 1. Create and activate a virtual environment
-python3 -m venv .venv
-source .venv/bin/activate  # (or .venv\Scripts\activate on Windows)
+```python3 -m venv .venv```
+```source .venv/bin/activate```
+# (or .venv\Scripts\activate on Windows)
 
 # 2. Install required packages
-pip install pymilvus[milvus_lite] openai python-dotenv fastapi uvicorn
+```pip install pymilvus[milvus_lite] openai python-dotenv fastapi uvicorn```
 
 
 **Step 3: Configure Environment Variables**
 Still in `chatbot/apps/backend`:
 
 # 1. Copy the example environment file
-cp .env.example .env  # (or copy .env.example .env on Windows)
+```cp .env.example .env ``` # (or copy .env.example .env on Windows)
 
 * Crucial: Open the new `.env` file in your code editor and add your actual `OPENAI_API_KEY`.
 
@@ -70,13 +71,13 @@ cp .env.example .env  # (or copy .env.example .env on Windows)
 Still in `chatbot/apps/backend`:
 
 # 1. Set the PYTHONPATH
-export PYTHONPATH=$PYTHONPATH:.
+```export PYTHONPATH=$PYTHONPATH:.```
 
 # 2. Initialize the SQLite database
-python scripts/init_db.py
+```python scripts/init_db.py```
 
 # 3. Initialize the Milvus vector store
-python scripts/init_vector_store.py
+```python scripts/init_vector_store.py```
 
 *(If both commands finish without errors, your database and vector files are ready).*
 
