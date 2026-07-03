@@ -1,9 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Image,
+  Keyboard // <-- Added Keyboard import
+  ,
+
+
+
+
+
+
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -26,18 +34,36 @@ export default function ChatScreen() {
   const router = useRouter();
   
   const [isBotOnline, setIsBotOnline] = useState(true);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false); // <-- Added state to track keyboard
   
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', text: 'Hello! I am your AI assistant. How can I help you today?', sender: 'bot' }
   ]);
   const [inputText, setInputText] = useState('');
 
-  // Helper to reliably scroll to bottom
+  // Listen for keyboard opening/closing
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const keyboardDidShowListener = Keyboard.addListener(showEvent, () => {
+      setKeyboardVisible(true);
+    });
+    const keyboardDidHideListener = Keyboard.addListener(hideEvent, () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+
   const scrollToBottom = () => {
     if (flatListRef.current) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100); // 100ms delay ensures layout calculations for multiline text finish first
+      }, 100);
     }
   };
 
@@ -82,8 +108,8 @@ export default function ChatScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        keyboardVerticalOffset={0}
       >
         {/* Header Section */}
         <View style={styles.header}>
@@ -114,13 +140,16 @@ export default function ChatScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderMessage}
           contentContainerStyle={styles.chatContainer}
-          // Both onLayout and onContentSizeChange help guarantee the scroll triggers properly
           onContentSizeChange={scrollToBottom}
           onLayout={scrollToBottom}
         />
 
         {/* Message Input Section */}
-        <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        {/* dynamically switch padding based on keyboard visibility */}
+        <View style={[
+          styles.inputContainer, 
+          { paddingBottom: isKeyboardVisible ? 12 : Math.max(insets.bottom, 67) }
+        ]}>
           <TouchableOpacity style={styles.mediaButton}>
             <Ionicons name="add-circle" size={28} color="#8E8E93" />
           </TouchableOpacity>
