@@ -4,14 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Image,
-  Keyboard // <-- Added Keyboard import
-  ,
-
-
-
-
-
-
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -21,6 +14,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useUser } from '../context/UserContext';
 
 type Message = {
   id: string;
@@ -33,15 +27,17 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList>(null);
   const router = useRouter();
   
+  // Access global user data so the avatar updates instantly
+  const { user } = useUser(); 
+  
   const [isBotOnline, setIsBotOnline] = useState(true);
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false); // <-- Added state to track keyboard
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', text: 'Hello! I am your AI assistant. How can I help you today?', sender: 'bot' }
   ]);
   const [inputText, setInputText] = useState('');
 
-  // Listen for keyboard opening/closing
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
@@ -126,8 +122,9 @@ export default function ChatScreen() {
           </View>
           
           <TouchableOpacity onPress={() => router.push('/profile')}>
+            {/* Using the global avatar here */}
             <Image 
-              source={require('../../assets/images/user.jpg')} 
+              source={user.avatar} 
               style={styles.avatarImage} 
             />
           </TouchableOpacity>
@@ -145,10 +142,9 @@ export default function ChatScreen() {
         />
 
         {/* Message Input Section */}
-        {/* dynamically switch padding based on keyboard visibility */}
         <View style={[
           styles.inputContainer, 
-          { paddingBottom: isKeyboardVisible ? 12 : Math.max(insets.bottom, 67) }
+          { paddingBottom: isKeyboardVisible ? 12 : Math.max(insets.bottom + 8, 20) }
         ]}>
           <TouchableOpacity style={styles.mediaButton}>
             <Ionicons name="add-circle" size={28} color="#8E8E93" />
