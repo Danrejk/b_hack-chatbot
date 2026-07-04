@@ -17,6 +17,7 @@ class ChatResponse(BaseModel):
     answer: str
     sources: list[SourceOut]
     agent: str | None = None
+    requires_ack: bool = False
 
 
 class VoiceChatResponse(ChatResponse):
@@ -29,6 +30,8 @@ class MessageOut(BaseModel):
     content: str
     sources: list[SourceOut] | None = None
     agent: str | None = None
+    requires_ack: bool = False
+    acknowledged_at: str | None = None
     created_at: str
 
 

@@ -35,6 +35,9 @@ class Settings:
     # Knowledge base
     knowledge_base_dir: Path = _resolve(os.getenv("KNOWLEDGE_BASE_DIR", "../../data/knowledge_base"))
 
+    # User profile (static seed file - no auth/user accounts yet)
+    user_profile_path: Path = _resolve(os.getenv("USER_PROFILE_PATH", "../../data/user_profile.json"))
+
     # RAG
     chunk_size: int = int(os.getenv("CHUNK_SIZE", "800"))
     chunk_overlap: int = int(os.getenv("CHUNK_OVERLAP", "100"))

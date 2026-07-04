@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS messages (
     content         TEXT NOT NULL,
     sources         TEXT,
     agent           TEXT,
+    requires_ack    INTEGER NOT NULL DEFAULT 0,
+    acknowledged_at TEXT,
     created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -34,6 +36,8 @@ CREATE INDEX IF NOT EXISTS idx_messages_conversation
 _MIGRATED_COLUMNS = [
     ("conversations", "active_agent", "TEXT"),
     ("messages", "agent", "TEXT"),
+    ("messages", "requires_ack", "INTEGER NOT NULL DEFAULT 0"),
+    ("messages", "acknowledged_at", "TEXT"),
 ]
 
 

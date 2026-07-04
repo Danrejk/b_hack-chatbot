@@ -59,6 +59,7 @@ def run_turn(
             "sources": [],
             "agent": None,
             "resolved": False,
+            "requires_ack": False,
         }
     )
 

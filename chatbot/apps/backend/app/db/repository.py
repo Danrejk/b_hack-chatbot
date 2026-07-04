@@ -72,25 +72,38 @@ def insert_message(
     content: str,
     sources: list[dict] | None = None,
     agent: str | None = None,
+    requires_ack: bool = False,
 ) -> str:
     message_id = str(uuid.uuid4())
     sources_json = json.dumps(sources) if sources is not None else None
     with _connect() as conn:
         conn.execute(
             """
-            INSERT INTO messages (id, conversation_id, role, content, sources, agent)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO messages (id, conversation_id, role, content, sources, agent, requires_ack)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (message_id, conversation_id, role, content, sources_json, agent),
+            (message_id, conversation_id, role, content, sources_json, agent, int(requires_ack)),
         )
     return message_id
+
+
+def acknowledge_message(conversation_id: str, message_id: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            """
+            UPDATE messages SET acknowledged_at = datetime('now')
+            WHERE id = ? AND conversation_id = ?
+            """,
+            (message_id, conversation_id),
+        )
 
 
 def list_messages(conversation_id: str) -> list[dict]:
     with _connect() as conn:
         rows = conn.execute(
             """
-            SELECT id, conversation_id, role, content, sources, agent, created_at
+            SELECT id, conversation_id, role, content, sources, agent,
+                   requires_ack, acknowledged_at, created_at
             FROM messages
             WHERE conversation_id = ?
             ORDER BY created_at ASC
@@ -102,5 +115,6 @@ def list_messages(conversation_id: str) -> list[dict]:
     for row in rows:
         message = dict(row)
         message["sources"] = json.loads(message["sources"]) if message["sources"] else None
+        message["requires_ack"] = bool(message["requires_ack"])
         messages.append(message)
     return messages

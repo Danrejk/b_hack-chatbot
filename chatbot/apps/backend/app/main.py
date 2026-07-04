@@ -54,10 +54,19 @@ def chat(request: ChatRequest) -> ChatResponse:
     result = run_turn(conversation_id, request.message)
 
     repository.insert_message(
-        conversation_id, "assistant", result["answer"], sources=result["sources"], agent=result["agent"]
+        conversation_id,
+        "assistant",
+        result["answer"],
+        sources=result["sources"],
+        agent=result["agent"],
+        requires_ack=result["requires_ack"],
     )
     return ChatResponse(
-        conversation_id=conversation_id, answer=result["answer"], sources=result["sources"], agent=result["agent"]
+        conversation_id=conversation_id,
+        answer=result["answer"],
+        sources=result["sources"],
+        agent=result["agent"],
+        requires_ack=result["requires_ack"],
     )
 
 
@@ -74,13 +83,19 @@ async def chat_voice(
     result = run_turn(conversation_id, transcript)
 
     repository.insert_message(
-        conversation_id, "assistant", result["answer"], sources=result["sources"], agent=result["agent"]
+        conversation_id,
+        "assistant",
+        result["answer"],
+        sources=result["sources"],
+        agent=result["agent"],
+        requires_ack=result["requires_ack"],
     )
     return VoiceChatResponse(
         conversation_id=conversation_id,
         answer=result["answer"],
         sources=result["sources"],
         agent=result["agent"],
+        requires_ack=result["requires_ack"],
         transcript=transcript,
     )
 
@@ -100,11 +115,29 @@ async def chat_image(
     result = run_turn(conversation_id, message, await image.read(), image.content_type)
 
     repository.insert_message(
-        conversation_id, "assistant", result["answer"], sources=result["sources"], agent=result["agent"]
+        conversation_id,
+        "assistant",
+        result["answer"],
+        sources=result["sources"],
+        agent=result["agent"],
+        requires_ack=result["requires_ack"],
     )
     return ChatResponse(
-        conversation_id=conversation_id, answer=result["answer"], sources=result["sources"], agent=result["agent"]
+        conversation_id=conversation_id,
+        answer=result["answer"],
+        sources=result["sources"],
+        agent=result["agent"],
+        requires_ack=result["requires_ack"],
     )
+
+
+@app.post("/conversations/{conversation_id}/messages/{message_id}/ack")
+def acknowledge_message(conversation_id: str, message_id: str) -> dict:
+    if repository.get_conversation(conversation_id) is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    repository.acknowledge_message(conversation_id, message_id)
+    return {"acknowledged": True}
 
 
 @app.get("/conversations", response_model=list[ConversationOut])

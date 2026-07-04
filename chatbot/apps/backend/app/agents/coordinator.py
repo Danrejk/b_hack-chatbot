@@ -51,4 +51,10 @@ def coordinator_node(state: TurnState) -> dict:
         if state["image_bytes"]
         else answer_query(state["message"], history=state["history"])
     )
-    return {"answer": result.answer, "sources": result.sources, "agent": "coordinator", "resolved": False}
+    return {
+        "answer": result.answer,
+        "sources": result.sources,
+        "agent": "coordinator",
+        "resolved": False,
+        "requires_ack": False,
+    }
