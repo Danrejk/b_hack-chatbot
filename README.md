@@ -4,7 +4,12 @@
 If you already have the project set up and just need to spin it up for development, follow these steps. You will need three separate terminal windows.
 
 **Terminal 1: Start the Backend**
-Open a terminal in `chatbot/apps/backend`:
+Open a terminal:
+
+Navigate to the backend directory:
+```bash
+cd chatbot/apps/backend/
+```
 
 # 1. Activate virtual environment
 # On macOS/Linux:
