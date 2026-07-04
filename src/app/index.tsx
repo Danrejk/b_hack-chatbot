@@ -220,7 +220,7 @@ const handleCamera = async () => {
                 <Text style={styles.logoText}>AI</Text>
               </NeoView>
               <View>
-                <Text style={styles.headerTitle}>B-Hack Bot</Text>
+                <Text style={styles.headerTitle}>CHUCK NORRIS</Text>
                 <View style={[styles.headerSubtitleContainer, !isBotOnline && styles.headerSubtitleOfflineContainer]}>
                   <Text style={styles.headerSubtitle}>
                     {isBotOnline ? 'ONLINE' : 'OFFLINE'}

@@ -21,16 +21,16 @@ type UserContextType = {
 };
 
 const defaultUser: UserProfile = {
-  name: 'Alex',
-  surname: 'Smith',
-  age: '28',
+  name: 'Raphael',
+  surname: 'Schmidt',
+  age: '35',
   gender: 'Male',
-  phone: '+1 (555) 123-4567',
-  emergencyContact: 'Sarah Smith (Sister) - +1 (555) 987-6543',
+  phone: '+49 4012345678',
+  emergencyContact: 'Sarah Smith (Sister) - +49 213706967',
   bloodType: 'O Positive (O+)',
   medicalData: 'Regular checkups normal. No recent surgeries.',
   healthIssues: 'Mild Asthma',
-  disabilities: 'None',
+  disabilities: 'Missing a kneecap and toothless',
   other: '',
   avatar: require('../../assets/images/user.jpg'), 
 };
