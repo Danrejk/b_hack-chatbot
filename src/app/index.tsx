@@ -54,10 +54,13 @@ export default function ChatScreen() {
   const [showMenu, setShowMenu] = useState(false);
   const [isConversationMode, setIsConversationMode] = useState(false);
   
-  const [messages, setMessages] = useState<Message[]>([
-    { id: '1', text: 'Hello! I am your AI assistant. How can I help you today?', sender: 'bot' }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
+
+  // The app starts on a blank "welcome" screen. As soon as the first
+  // message is sent, `messages` becomes non-empty and we switch to the
+  // normal chat view.
+  const hasStartedChat = messages.length > 0;
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -200,6 +203,107 @@ const handleCamera = async () => {
   const hasSentMessage = messages.some(m => m.sender === 'user');
   const showMic = (!hasSentMessage || isConversationMode) && !isFocused && !isKeyboardVisible && inputText.length === 0;
 
+  // Shared input bar (textbox + send button + attachment menu). Used both
+  // on the welcome screen and in the normal chat screen so they look and
+  // behave identically.
+  const renderInputBar = () => (
+    <View style={styles.inputGroup}>
+      {/* Options Menu Popup */}
+      {showMenu && (
+        <View style={styles.menuWrapper}>
+          <NeoView containerStyle={styles.menuNeo} innerStyle={styles.menuInner} borderRadius={16}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setIsConversationMode(true);
+                setShowMenu(false);
+              }}
+            >
+              <Ionicons name="mic-outline" size={20} color={RED_ACCENT} />
+              <Text style={styles.menuText}>Conversation Mode</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuItem, { marginTop: 16 }]}
+              onPress={handleCamera}
+            >
+              <Ionicons name="camera-outline" size={20} color={RED_ACCENT} />
+              <Text style={styles.menuText}>Camera</Text>
+            </TouchableOpacity>
+          </NeoView>
+        </View>
+      )}
+
+      <NeoView containerStyle={styles.inputWrapper} innerStyle={styles.inputInner} borderRadius={28}>
+        <TouchableOpacity
+          style={styles.mediaButton}
+          onPress={() => {
+            setShowMenu(!showMenu);
+            Keyboard.dismiss();
+          }}
+        >
+          <Ionicons name={showMenu ? "close" : "add"} size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <TextInput
+          style={styles.textInput}
+          placeholder="Message..."
+          placeholderTextColor={TEXT_MUTED}
+          value={inputText}
+          onChangeText={setInputText}
+          multiline
+          maxLength={500}
+          editable={isBotOnline}
+          onFocus={() => {
+            setIsFocused(true);
+            setShowMenu(false);
+          }}
+          onBlur={() => setIsFocused(false)}
+        />
+
+        <TouchableOpacity
+          style={styles.sendButtonArea}
+          onPress={handleSend}
+          disabled={!inputText.trim() || !isBotOnline}
+        >
+          <NeoView containerStyle={styles.sendNeo} innerStyle={[styles.sendInner, (!inputText.trim() || !isBotOnline) && styles.sendInnerDisabled]} borderRadius={20}>
+            <Ionicons
+              name="send"
+              size={16}
+              color="#FFFFFF"
+              style={{ marginLeft: 2 }}
+            />
+          </NeoView>
+        </TouchableOpacity>
+      </NeoView>
+    </View>
+  );
+
+  // ---- Welcome screen (shown before the first message is sent) ----
+  if (!hasStartedChat) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          {showMenu && (
+            <Pressable style={styles.overlay} onPress={() => setShowMenu(false)} />
+          )}
+
+          <View style={styles.welcomeContainer}>
+            <NeoView containerStyle={styles.welcomeLogoOuter} innerStyle={styles.welcomeLogoInner} borderRadius={40}>
+              <Text style={styles.welcomeLogoText}>AI</Text>
+            </NeoView>
+
+            <Text style={styles.welcomeTitle}>Hi, how can I help you?</Text>
+
+            <View style={styles.welcomeInputWrapper}>
+              {renderInputBar()}
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -263,79 +367,7 @@ const handleCamera = async () => {
             </View>
           )} */}
 
-          <View style={styles.inputGroup}>
-            {/* Options Menu Popup */}
-            {showMenu && (
-              <View style={styles.menuWrapper}>
-                <NeoView containerStyle={styles.menuNeo} innerStyle={styles.menuInner} borderRadius={16}>
-                  <TouchableOpacity 
-                    style={styles.menuItem} 
-                    onPress={() => {
-                      setIsConversationMode(true);
-                      setShowMenu(false);
-                    }}
-                  >
-                    <Ionicons name="mic-outline" size={20} color={RED_ACCENT} />
-                    <Text style={styles.menuText}>Conversation Mode</Text>
-                  </TouchableOpacity>
-
-                  {/* Add Camera Option */}
-                  <TouchableOpacity 
-                    style={[styles.menuItem, { marginTop: 16 }]} 
-                    onPress={handleCamera}
-                  >
-                    <Ionicons name="camera-outline" size={20} color={RED_ACCENT} />
-                    <Text style={styles.menuText}>Camera</Text>
-                  </TouchableOpacity>
-
-                </NeoView>
-              </View>
-            )}
-
-            <NeoView containerStyle={styles.inputWrapper} innerStyle={styles.inputInner} borderRadius={28}>
-              
-              <TouchableOpacity 
-                style={styles.mediaButton} 
-                onPress={() => {
-                  setShowMenu(!showMenu);
-                  Keyboard.dismiss();
-                }}
-              >
-                <Ionicons name={showMenu ? "close" : "add"} size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-
-              <TextInput
-                style={styles.textInput}
-                placeholder="Message..."
-                placeholderTextColor={TEXT_MUTED}
-                value={inputText}
-                onChangeText={setInputText}
-                multiline
-                maxLength={500}
-                editable={isBotOnline}
-                onFocus={() => {
-                  setIsFocused(true);
-                  setShowMenu(false);
-                }}
-                onBlur={() => setIsFocused(false)}
-              />
-              
-              <TouchableOpacity
-                style={styles.sendButtonArea}
-                onPress={handleSend}
-                disabled={!inputText.trim() || !isBotOnline}
-              >
-                <NeoView containerStyle={styles.sendNeo} innerStyle={[styles.sendInner, (!inputText.trim() || !isBotOnline) && styles.sendInnerDisabled]} borderRadius={20}>
-                  <Ionicons 
-                    name="send" 
-                    size={16} 
-                    color="#FFFFFF" 
-                    style={{ marginLeft: 2 }}
-                  />
-                </NeoView>
-              </TouchableOpacity>
-            </NeoView>
-          </View>
+          {renderInputBar()}
         </View>
 
       </KeyboardAvoidingView>
@@ -507,4 +539,27 @@ const styles = StyleSheet.create({
     borderRadius: 20
   },
   sendInnerDisabled: { backgroundColor: '#C47C84' },
+
+  /* Welcome Screen */
+  welcomeContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  welcomeLogoOuter: { marginBottom: 24 },
+  welcomeLogoInner: {
+    width: 84, height: 84, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: RED_ACCENT,
+    borderRadius: 40,
+  },
+  welcomeLogoText: { color: '#FFFFFF', fontWeight: '800', fontSize: 26 },
+  welcomeTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: TEXT_DARK,
+    textAlign: 'center',
+    marginBottom: 40,
+  },
+  welcomeInputWrapper: { width: '100%' },
 });
