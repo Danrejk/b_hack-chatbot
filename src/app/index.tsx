@@ -455,9 +455,16 @@ const renderMessage = ({ item }: { item: Message }) => {
               },
             ]}
           >
-            <NeoView containerStyle={styles.welcomeLogoOuter} innerStyle={styles.welcomeLogoInner} borderRadius={40}>
-              <Text style={styles.welcomeLogoText}>AI</Text>
-            </NeoView>
+            <NeoView 
+            containerStyle={styles.welcomeBigLogoOuter} 
+            innerStyle={styles.welcomeBigLogoInner} 
+            borderRadius={20}
+          >
+            <Image 
+              source={require('../../assets/expo.icon/Assets/LightHaus.jpeg')} 
+              style={styles.welcomeBigLogoImage} 
+            />
+          </NeoView>
 
             <Text style={styles.welcomeTitle}>Hi, how can I help you?</Text>
 
@@ -532,7 +539,10 @@ const renderMessage = ({ item }: { item: Message }) => {
           <NeoView containerStyle={styles.headerNeo} innerStyle={styles.headerInner} borderRadius={24}>
             <View style={styles.headerLeft}>
               <NeoView containerStyle={styles.logoOuter} innerStyle={styles.logoInner} borderRadius={22}>
-                <Text style={styles.logoText}>AI</Text>
+              <Image 
+                source={require('../../assets/expo.icon/Assets/LightHaus.jpeg')} 
+                style={styles.headerLogoImage} 
+              />
               </NeoView>
               <View>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -597,6 +607,17 @@ const renderMessage = ({ item }: { item: Message }) => {
 }
 
 const styles = StyleSheet.create({
+
+  logoImage: {
+  width: 44,
+  height: 44,
+  // 8 to 12 is the sweet spot for a "rounded square"
+  borderRadius: 10, 
+  // 0.5 to 1.0 is great for a "very thin" line
+  borderWidth: 0.5, 
+  borderColor: '#D1D5DB', // A light, subtle gray
+  resizeMode: 'cover',
+},
   container: { flex: 1, backgroundColor: BG_COLOR },
   keyboardView: { flex: 1 },
   
@@ -609,7 +630,28 @@ const styles = StyleSheet.create({
 
   instructionCheckDisabled: {
   backgroundColor: '#BDBDBD', // Gray color
-},
+  },
+  welcomeBigLogoOuter: {
+    width: 160,
+    height: 160,
+    borderRadius: 20,
+  },
+  welcomeBigLogoInner: {
+    width: 160,
+    height: 160,
+    borderRadius: 20,
+    backgroundColor: BG_COLOR,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  welcomeBigLogoImage: {
+    width: 140,
+    height: 140,
+    borderRadius: 16,
+    borderWidth: 0.5,
+    borderColor: '#D1D5DB',
+    resizeMode: 'cover',
+  },
 
   /* HEAVILY MAXED OUT SHADOWS */
   neoDark: {
@@ -627,6 +669,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 20, // More blur to spread the light
   },
+  
+  headerLogoImage: {
+  width: 44,
+  height: 44,
+  borderRadius: 22,   // same as the circle container
+  resizeMode: 'cover',
+},
 
   headerContainer: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 },
   headerNeo: { width: '100%' },
