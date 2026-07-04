@@ -21,24 +21,25 @@ class RagResult:
     sources: list[dict]
 
 
-def build_prompt(query: str, chunks: list[dict]) -> list[dict]:
+def build_prompt(query: str, chunks: list[dict], history: list[dict] | None = None) -> list[dict]:
     context = "\n\n".join(
         f"[{i + 1}] (source: {chunk['source']})\n{chunk['text']}" for i, chunk in enumerate(chunks)
     )
     user_content = f"Context:\n{context}\n\nQuestion: {query}" if chunks else query
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
+        *(history or []),
         {"role": "user", "content": user_content},
     ]
 
 
-def answer_query(query: str, top_k: int | None = None) -> RagResult:
+def answer_query(query: str, top_k: int | None = None, history: list[dict] | None = None) -> RagResult:
     top_k = top_k or settings.top_k
 
     query_vector = embed_texts([query])[0]
     chunks = search(query_vector, top_k=top_k)
 
-    messages = build_prompt(query, chunks)
+    messages = build_prompt(query, chunks, history=history)
     response = get_client().chat.completions.create(model=settings.llm_model, messages=messages)
     answer = response.choices[0].message.content
 
@@ -49,7 +50,9 @@ def answer_query(query: str, top_k: int | None = None) -> RagResult:
     return RagResult(answer=answer, sources=sources)
 
 
-def build_image_prompt(query: str | None, image_bytes: bytes, mime_type: str) -> list[dict]:
+def build_image_prompt(
+    query: str | None, image_bytes: bytes, mime_type: str, history: list[dict] | None = None
+) -> list[dict]:
     b64 = base64.b64encode(image_bytes).decode()
     content = [
         {"type": "text", "text": query or "Describe this image."},
@@ -57,13 +60,16 @@ def build_image_prompt(query: str | None, image_bytes: bytes, mime_type: str) ->
     ]
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
+        *(history or []),
         {"role": "user", "content": content},
     ]
 
 
-def answer_query_with_image(query: str | None, image_bytes: bytes, mime_type: str) -> RagResult:
+def answer_query_with_image(
+    query: str | None, image_bytes: bytes, mime_type: str, history: list[dict] | None = None
+) -> RagResult:
     """Vision variant of answer_query. No retrieval step - the knowledge base
     is text-only, so this goes straight to the model with the image."""
-    messages = build_image_prompt(query, image_bytes, mime_type)
+    messages = build_image_prompt(query, image_bytes, mime_type, history=history)
     response = get_client().chat.completions.create(model=settings.vision_model, messages=messages)
     return RagResult(answer=response.choices[0].message.content, sources=[])

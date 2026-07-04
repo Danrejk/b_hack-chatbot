@@ -16,6 +16,7 @@ class ChatResponse(BaseModel):
     conversation_id: str
     answer: str
     sources: list[SourceOut]
+    agent: str | None = None
 
 
 class VoiceChatResponse(ChatResponse):
@@ -27,6 +28,7 @@ class MessageOut(BaseModel):
     role: str
     content: str
     sources: list[SourceOut] | None = None
+    agent: str | None = None
     created_at: str
 
 

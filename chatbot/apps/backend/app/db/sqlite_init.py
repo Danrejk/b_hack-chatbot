@@ -9,9 +9,10 @@ from app.core.config import settings
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS conversations (
-    id          TEXT PRIMARY KEY,
-    title       TEXT,
-    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    id            TEXT PRIMARY KEY,
+    title         TEXT,
+    active_agent  TEXT,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS messages (
@@ -20,12 +21,27 @@ CREATE TABLE IF NOT EXISTS messages (
     role            TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
     content         TEXT NOT NULL,
     sources         TEXT,
+    agent           TEXT,
     created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation
     ON messages(conversation_id);
 """
+
+# (table, column, type) added after the initial release - CREATE TABLE IF NOT
+# EXISTS won't retrofit these onto a database file that predates them.
+_MIGRATED_COLUMNS = [
+    ("conversations", "active_agent", "TEXT"),
+    ("messages", "agent", "TEXT"),
+]
+
+
+def _add_missing_columns(conn: sqlite3.Connection) -> None:
+    for table, column, coltype in _MIGRATED_COLUMNS:
+        existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
 
 
 def init_db(db_path=None) -> None:
@@ -35,6 +51,7 @@ def init_db(db_path=None) -> None:
     conn = sqlite3.connect(db_path)
     try:
         conn.executescript(SCHEMA)
+        _add_missing_columns(conn)
         conn.commit()
     finally:
         conn.close()

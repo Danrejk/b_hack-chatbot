@@ -1,10 +1,10 @@
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.agents.graph import run_turn
 from app.audio.transcriber import transcribe_audio
 from app.db import repository
 from app.db.sqlite_init import init_db
-from app.rag.pipeline import answer_query, answer_query_with_image
 from app.schemas import (
     ChatRequest,
     ChatResponse,
@@ -51,12 +51,14 @@ def chat(request: ChatRequest) -> ChatResponse:
 
     repository.insert_message(conversation_id, "user", request.message)
 
-    result = answer_query(request.message)
+    result = run_turn(conversation_id, request.message)
 
-    sources = [dict(source) for source in result.sources]
-    repository.insert_message(conversation_id, "assistant", result.answer, sources=sources)
-
-    return ChatResponse(conversation_id=conversation_id, answer=result.answer, sources=sources)
+    repository.insert_message(
+        conversation_id, "assistant", result["answer"], sources=result["sources"], agent=result["agent"]
+    )
+    return ChatResponse(
+        conversation_id=conversation_id, answer=result["answer"], sources=result["sources"], agent=result["agent"]
+    )
 
 
 @app.post("/chat/voice", response_model=VoiceChatResponse)
@@ -69,14 +71,16 @@ async def chat_voice(
     transcript = transcribe_audio(await audio.read(), audio.filename, audio.content_type)
     repository.insert_message(conversation_id, "user", transcript)
 
-    result = answer_query(transcript)
-    sources = [dict(source) for source in result.sources]
-    repository.insert_message(conversation_id, "assistant", result.answer, sources=sources)
+    result = run_turn(conversation_id, transcript)
 
+    repository.insert_message(
+        conversation_id, "assistant", result["answer"], sources=result["sources"], agent=result["agent"]
+    )
     return VoiceChatResponse(
         conversation_id=conversation_id,
-        answer=result.answer,
-        sources=sources,
+        answer=result["answer"],
+        sources=result["sources"],
+        agent=result["agent"],
         transcript=transcript,
     )
 
@@ -93,11 +97,14 @@ async def chat_image(
     conversation_id = _get_or_create_conversation(conversation_id)
     repository.insert_message(conversation_id, "user", message or "[Image]")
 
-    result = answer_query_with_image(message, await image.read(), image.content_type)
-    sources = [dict(source) for source in result.sources]
-    repository.insert_message(conversation_id, "assistant", result.answer, sources=sources)
+    result = run_turn(conversation_id, message, await image.read(), image.content_type)
 
-    return ChatResponse(conversation_id=conversation_id, answer=result.answer, sources=sources)
+    repository.insert_message(
+        conversation_id, "assistant", result["answer"], sources=result["sources"], agent=result["agent"]
+    )
+    return ChatResponse(
+        conversation_id=conversation_id, answer=result["answer"], sources=result["sources"], agent=result["agent"]
+    )
 
 
 @app.get("/conversations", response_model=list[ConversationOut])
