@@ -1,56 +1,103 @@
-# Welcome to your Expo app 👋
+# Crisis Readiness AI: Run Guide
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## 1. Quick Start (Daily Development)
+If you already have the project set up and just need to spin it up for development, follow these steps. You will need three separate terminal windows.
 
-## Get started
+**Terminal 1: Start the Backend**
+Open a terminal:
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+Navigate to the backend directory:
 ```bash
-npm run reset-project
+cd chatbot/apps/backend/
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+# 1. Activate virtual environment
+# On macOS/Linux:
+```bash
+source chatbot/apps/backend/.venv/bin/activate
+```
+# On Windows:
+```bash
+chatbot\apps\backend\.venv\Scripts\activate
+```
 
-### Other setup steps
+# 2. Set PYTHONPATH to the current directory
+```bash
+export PYTHONPATH=$PYTHONPATH:.
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+# 3. Run the FastAPI server
+```bash
+python -m uvicorn app.main:app --reload
+```
 
-## Learn more
 
-To learn more about developing your project with Expo, look at the following resources:
+**Terminal 2: Start the Frontend**
+Open a new terminal in the project root folder (where your `package.json` is):
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npx expo start
+```
 
-## Join the community
 
-Join our community of developers creating universal apps.
+**Terminal 3: USB Port Tunneling (For physical Android testing)**
+If testing via USB, open a fresh terminal on your laptop to bridge your local servers to your phone:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+# Tunnel Expo server
+```bash
+adb reverse tcp:8081 tcp:8081
+```
+
+# Tunnel FastAPI backend server
+```bash
+adb reverse tcp:8000 tcp:8000
+```
+
+*(Once running, press `a` in the Expo terminal to force it to open on your phone).*
+
+---
+
+## 2. Full Setup (From Scratch)
+If you are starting completely from scratch on a new machine, do this setup first.
+
+**Step 1: Install Frontend Dependencies**
+Open a terminal in the project root:
+
+```npm install```
+
+
+**Step 2: Setup Python Environment**
+Open a terminal in `chatbot/apps/backend`:
+
+# 1. Create and activate a virtual environment
+```python3 -m venv .venv```
+```source .venv/bin/activate```
+# (or .venv\Scripts\activate on Windows)
+
+# 2. Install required packages
+```pip install pymilvus[milvus_lite] openai python-dotenv fastapi uvicorn```
+
+
+**Step 3: Configure Environment Variables**
+Still in `chatbot/apps/backend`:
+
+# 1. Copy the example environment file
+```cp .env.example .env ``` # (or copy .env.example .env on Windows)
+
+* Crucial: Open the new `.env` file in your code editor and add your actual `OPENAI_API_KEY`.
+
+**Step 4: Initialize Storage Layer**
+Still in `chatbot/apps/backend`:
+
+# 1. Set the PYTHONPATH
+```export PYTHONPATH=$PYTHONPATH:.```
+
+# 2. Initialize the SQLite database
+```python scripts/init_db.py```
+
+# 3. Initialize the Milvus vector store
+```python scripts/init_vector_store.py```
+
+*(If both commands finish without errors, your database and vector files are ready).*
+
+Once these steps are complete, proceed to the **Quick Start** section at the top of this guide to run the app.

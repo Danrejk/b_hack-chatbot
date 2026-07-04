@@ -67,25 +67,57 @@ export default function ChatScreen() {
     }
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputText.trim()) return;
 
-    const newUserMessage: Message = {
-      id: Date.now().toString(), text: inputText.trim(), sender: 'user'
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: inputText.trim(),
+      sender: 'user'
     };
 
-    setMessages(prev => [...prev, newUserMessage]);
+    // 1. Add user message to UI immediately
+    setMessages(prev => [...prev, userMessage]);
     setInputText('');
 
-    if (isBotOnline) {
-      setTimeout(() => {
-        const botMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          text: "The shadows are casting much heavier now! The dull brick red really fits the Neumorphic style nicely.",
-          sender: 'bot'
-        };
-        setMessages(prev => [...prev, botMessage]);
-      }, 1000);
+    // 2. Add "Thinking..." state
+    const thinkingId = (Date.now() + 1).toString();
+    setMessages(prev => [...prev, { id: thinkingId, text: 'Thinking...', sender: 'bot' }]);
+
+    try {
+      // 3. Call the Python FastAPI Backend
+      // NOTE: Ensure adb reverse tcp:8000 tcp:8000 is running if on physical Android device!
+      const response = await fetch('http://127.0.0.1:8000/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: userMessage.text,
+          conversation_id: null,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const data = await response.json();
+
+      // 4. Replace "Thinking..." with the actual bot answer
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === thinkingId ? { ...msg, text: data.answer } : msg
+        )
+      );
+    } catch (error) {
+      console.error('API Error:', error);
+      // Replace "Thinking..." with an error message so the user isn't stuck waiting
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === thinkingId ? { ...msg, text: 'Sorry, I am having trouble connecting to the server.' } : msg
+        )
+      );
     }
   };
 
@@ -119,7 +151,6 @@ export default function ChatScreen() {
               </NeoView>
               <View>
                 <Text style={styles.headerTitle}>B-Hack Bot</Text>
-                {/* NEW SOLID RED PILL FOR ONLINE STATUS */}
                 <View style={[styles.headerSubtitleContainer, !isBotOnline && styles.headerSubtitleOfflineContainer]}>
                   <Text style={styles.headerSubtitle}>
                     {isBotOnline ? 'ONLINE' : 'OFFLINE'}
@@ -151,7 +182,6 @@ export default function ChatScreen() {
         <View style={[styles.bottomContainer, { paddingBottom: isKeyboardVisible ? 12 : Math.max(insets.bottom + 8, 20) }]}>
           <NeoView containerStyle={styles.inputWrapper} innerStyle={styles.inputInner} borderRadius={28}>
             
-            {/* NEW SOLID RED MEDIA BUTTON */}
             <TouchableOpacity style={styles.mediaButton}>
               <Ionicons name="add" size={24} color="#FFFFFF" />
             </TouchableOpacity>
@@ -193,13 +223,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG_COLOR },
   keyboardView: { flex: 1 },
   
-  /* MAXED OUT SHADOWS TO POP MORE */
+  /* MAXED OUT SHADOWS */
   neoDark: {
     backgroundColor: BG_COLOR,
-    shadowColor: '#8C9CB0', // Much darker shadow
-    shadowOffset: { width: 12, height: 12 }, // Pushed further out
-    shadowOpacity: 1, // Max opacity
-    shadowRadius: 16, // Softer, larger spread
+    shadowColor: '#8C9CB0',
+    shadowOffset: { width: 12, height: 12 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
     elevation: 15,
   },
   neoLight: {
@@ -220,14 +250,14 @@ const styles = StyleSheet.create({
   logoOuter: { marginRight: 14 },
   logoInner: { 
     width: 44, height: 44, justifyContent: 'center', alignItems: 'center',
-    backgroundColor: RED_ACCENT, // SOLID DULL RED
+    backgroundColor: RED_ACCENT,
     borderRadius: 22,
   },
   logoText: { color: '#FFFFFF', fontWeight: '800', fontSize: 16 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: TEXT_DARK },
   
   headerSubtitleContainer: { 
-    backgroundColor: RED_ACCENT, // SOLID DULL RED
+    backgroundColor: RED_ACCENT,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, marginTop: 4, alignSelf: 'flex-start'
   },
   headerSubtitleOfflineContainer: { backgroundColor: TEXT_MUTED },
@@ -248,7 +278,7 @@ const styles = StyleSheet.create({
   messageBubble: { paddingHorizontal: 18, paddingVertical: 14 },
   userBubble: { 
     borderBottomRightRadius: 4,
-    backgroundColor: RED_ACCENT // SOLID DULL RED
+    backgroundColor: RED_ACCENT
   },
   botBubble: { borderBottomLeftRadius: 4 },
   messageText: { fontSize: 16, lineHeight: 22 },
@@ -265,7 +295,7 @@ const styles = StyleSheet.create({
   mediaButton: { 
     marginBottom: 8, marginRight: 8, width: 36, height: 36, 
     justifyContent: 'center', alignItems: 'center',
-    backgroundColor: RED_ACCENT, // SOLID DULL RED
+    backgroundColor: RED_ACCENT,
     borderRadius: 18
   },
   textInput: {
@@ -276,7 +306,7 @@ const styles = StyleSheet.create({
   sendNeo: {},
   sendInner: { 
     width: 40, height: 40, justifyContent: 'center', alignItems: 'center',
-    backgroundColor: RED_ACCENT, // SOLID DULL RED
+    backgroundColor: RED_ACCENT,
     borderRadius: 20
   },
   sendInnerDisabled: { backgroundColor: '#C47C84' },
