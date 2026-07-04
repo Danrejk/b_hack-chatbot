@@ -140,7 +140,7 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         
         {/* Neomorphic Header */}
         <View style={styles.headerContainer}>
@@ -293,16 +293,18 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: RED_ACCENT
   },
   mediaButton: { 
-    marginBottom: 8, marginRight: 8, width: 36, height: 36, 
+    marginBottom: 2, marginRight: 8, width: 36, height: 36, 
     justifyContent: 'center', alignItems: 'center',
     backgroundColor: RED_ACCENT,
     borderRadius: 18
   },
   textInput: {
     flex: 1, minHeight: 40, maxHeight: 120, fontSize: 16, 
-    color: TEXT_DARK, paddingVertical: 10, paddingHorizontal: 4
+    color: TEXT_DARK, 
+    paddingTop: 10, paddingBottom: 10, paddingHorizontal: 4,
+    textAlignVertical: 'center'
   },
-  sendButtonArea: { marginBottom: 6, marginLeft: 8 },
+  sendButtonArea: { marginBottom: 0, marginLeft: 8 },
   sendNeo: {},
   sendInner: { 
     width: 40, height: 40, justifyContent: 'center', alignItems: 'center',
