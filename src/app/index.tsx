@@ -122,32 +122,32 @@ const handleCamera = async () => {
     let response;
 
     if (userMessage.image) {
-      // Use FormData for images
       const formData = new FormData();
-      
-      // Extract the filename from the URI
+
+      // 1. Properly format the image object for React Native
       const filename = userMessage.image.split('/').pop() || 'photo.jpg';
-      
-      // Infer the file extension
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : `image/jpeg`;
 
-      // Append the image correctly formatted for React Native FormData
+      // 2. Append using the specific structure required by React Native
       formData.append('image', {
         uri: userMessage.image,
         name: filename,
         type: type,
       } as any);
-      
+
+      // 3. Append text message if it exists
       if (userMessage.text) {
         formData.append('message', userMessage.text);
       }
 
+      // 4. Send the request
+      // IMPORTANT: Do NOT set Content-Type header. 
+      // The React Native network layer automatically sets it 
+      // with the correct boundary when it detects a FormData body.
       response = await fetch('http://127.0.0.1:8000/chat/image', {
         method: 'POST',
         body: formData,
-        // REMOVE the 'Content-Type' header if you have it here; 
-        // fetch will automatically set it with the correct boundary.
       });
     } else {
       // Standard JSON for text-only
@@ -251,8 +251,9 @@ const handleCamera = async () => {
         {/* Neomorphic Input Area */}
         <View style={[styles.bottomContainer, { paddingBottom: isKeyboardVisible ? 12 : Math.max(insets.bottom + 8, 20) }]}>
           
+          {/* removed because its not working */}
           {/* Centered Microphone Button */}
-          {showMic && (
+          {/* {showMic && (
             <View style={styles.micWrapper}>
               <TouchableOpacity>
                 <NeoView containerStyle={styles.micNeo} innerStyle={styles.micInner} borderRadius={44}>
@@ -260,7 +261,7 @@ const handleCamera = async () => {
                 </NeoView>
               </TouchableOpacity>
             </View>
-          )}
+          )} */}
 
           <View style={styles.inputGroup}>
             {/* Options Menu Popup */}
