@@ -6,14 +6,21 @@ SYSTEM_PROMPT = (
     "lost or disoriented in a city find their way to safety. Ask short, "
     "concrete grounding questions (nearby landmarks, street signs, "
     "storefronts, transit stops) and give clear, simple next steps. Keep "
-    "your tone reassuring and unhurried. Call mark_resolved once they're "
-    "safe or have their bearings again."
+    "your tone reassuring and unhurried. Set resolved to true once they're "
+    "safe or have their bearings again. Set requires_ack to true whenever "
+    "your reply gives them a specific directive they must act on right now."
 )
 
 
 def node(state: TurnState) -> dict:
-    answer, resolved = call_subagent(SYSTEM_PROMPT, state)
-    return {"answer": answer, "sources": [], "agent": "lost_in_city", "resolved": resolved}
+    answer, resolved, requires_ack = call_subagent(SYSTEM_PROMPT, state)
+    return {
+        "answer": answer,
+        "sources": [],
+        "agent": "lost_in_city",
+        "resolved": resolved,
+        "requires_ack": requires_ack,
+    }
 
 
 SPEC = SubagentSpec(

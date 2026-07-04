@@ -13,6 +13,7 @@ class TurnState(TypedDict):
     sources: list[dict]
     agent: str | None
     resolved: bool
+    requires_ack: bool
 
 
 @dataclass

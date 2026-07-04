@@ -1,33 +1,63 @@
-"""Shared plumbing for subagent nodes: build the prompt, call the model with
-the handoff tool available, and report whether it handed off."""
+"""Shared plumbing for subagent nodes: build the prompt, call the model, and
+report the reply plus resolved/requires_ack flags.
+
+Uses structured output (a JSON schema response_format) rather than parallel
+tool-calling for these flags: in testing, gpt-4o-mini reliably calls a tool
+when it's the *only* thing in the response (e.g. resolving with no further
+text), but when asked to return both real reply text and call a second tool
+in parallel, it unreliably narrates the tool call as text instead of
+actually invoking it. Structured output guarantees the flags are always
+present in the same single call.
+"""
+import json
+
 from app.agents.prompting import build_turn_messages
 from app.agents.state import TurnState
 from app.core.config import settings
 from app.core.openai_client import get_client
 
-HANDOFF_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "mark_resolved",
-        "description": (
-            "Call this once the situation is resolved and the user no "
-            "longer needs this specialized help."
-        ),
-        "parameters": {"type": "object", "properties": {}},
+RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "subagent_reply",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "reply": {
+                    "type": "string",
+                    "description": "The reply to show the user.",
+                },
+                "resolved": {
+                    "type": "boolean",
+                    "description": (
+                        "True once the situation is resolved and the user no "
+                        "longer needs this specialized help."
+                    ),
+                },
+                "requires_ack": {
+                    "type": "boolean",
+                    "description": (
+                        "True if `reply` contains a directive the user must "
+                        "read and act on now (e.g. a shelter or evacuation "
+                        "instruction)."
+                    ),
+                },
+            },
+            "required": ["reply", "resolved", "requires_ack"],
+            "additionalProperties": False,
+        },
+        "strict": True,
     },
 }
 
 
-def call_subagent(system_prompt: str, state: TurnState) -> tuple[str, bool]:
+def call_subagent(system_prompt: str, state: TurnState) -> tuple[str, bool, bool]:
     messages = build_turn_messages(system_prompt, state)
 
     response = get_client().chat.completions.create(
         model=settings.llm_model,
         messages=messages,
-        tools=[HANDOFF_TOOL],
+        response_format=RESPONSE_FORMAT,
     )
-    message = response.choices[0].message
-    resolved = any(call.function.name == "mark_resolved" for call in (message.tool_calls or []))
-    fallback = "Glad that's resolved - take care." if resolved else "Understood."
-    answer = message.content or fallback
-    return answer, resolved
+    data = json.loads(response.choices[0].message.content)
+    return data["reply"], data["resolved"], data["requires_ack"]
