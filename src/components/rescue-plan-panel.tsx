@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   interpolate,
@@ -13,6 +13,32 @@ const RED_ACCENT = '#9E3641';
 const BG_COLOR = '#EBEEF2';
 const TEXT_DARK = '#2D3142';
 const TEXT_MUTED = '#8E94A3';
+const CARD_BG = '#FFFFFF';
+
+// Static placeholder content until the rescue plan is generated from the
+// live conversation (location, active alerts, agent guidance).
+const EVACUATION_STEPS = [
+  'Stay away from windows and exterior walls.',
+  'Move to the lowest, most central room or basement.',
+  'Grab your go-bag only if it is already packed and nearby.',
+  'Follow official evacuation routes - avoid the port/harbor district.',
+  'Do not return home until authorities confirm the area is clear.',
+];
+
+const BACKPACK_CHECKLIST = [
+  'Water and non-perishable food (2-3 days)',
+  'ID, passport, and medical documents',
+  'Cash in small bills',
+  'Prescription medication and first aid kit',
+  'Flashlight, power bank, and phone charger',
+  'Warm clothing and sturdy shoes',
+];
+
+const EMERGENCY_NUMBERS = [
+  { label: 'All emergencies (EU-wide)', number: '112' },
+  { label: 'Police', number: '110' },
+  { label: 'Poison control', number: '+49 30 19240' },
+];
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PANEL_WIDTH = SCREEN_WIDTH * 0.84;
@@ -88,10 +114,50 @@ export default function RescuePlanPanel() {
             </View>
           </GestureDetector>
 
-          <View style={styles.placeholderBody}>
-            <Ionicons name="document-text-outline" size={40} color={TEXT_MUTED} />
-            <Text style={styles.placeholderText}>Your rescue plan will appear here.</Text>
-          </View>
+          <ScrollView
+            style={styles.body}
+            contentContainerStyle={styles.bodyContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="walk-outline" size={18} color={RED_ACCENT} />
+                <Text style={styles.cardTitle}>Next steps: evacuation</Text>
+              </View>
+              {EVACUATION_STEPS.map((step, index) => (
+                <View key={step} style={styles.row}>
+                  <Text style={styles.rowIndex}>{index + 1}</Text>
+                  <Text style={styles.rowText}>{step}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="bag-outline" size={18} color={RED_ACCENT} />
+                <Text style={styles.cardTitle}>Backpack checklist</Text>
+              </View>
+              {BACKPACK_CHECKLIST.map((item) => (
+                <View key={item} style={styles.row}>
+                  <Ionicons name="checkbox-outline" size={16} color={TEXT_MUTED} />
+                  <Text style={styles.rowText}>{item}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="call-outline" size={18} color={RED_ACCENT} />
+                <Text style={styles.cardTitle}>Emergency numbers</Text>
+              </View>
+              {EMERGENCY_NUMBERS.map((entry) => (
+                <View key={entry.label} style={styles.contactRow}>
+                  <Text style={styles.rowText}>{entry.label}</Text>
+                  <Text style={styles.contactNumber}>{entry.number}</Text>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
         </SafeAreaView>
       </Animated.View>
     </>
@@ -138,6 +204,33 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: { fontSize: 20, fontWeight: '800', color: TEXT_DARK },
-  placeholderBody: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  placeholderText: { fontSize: 14, color: TEXT_MUTED, textAlign: 'center' },
+  body: { flex: 1 },
+  bodyContent: { paddingBottom: 24, gap: 16 },
+  card: {
+    backgroundColor: CARD_BG,
+    borderRadius: 14,
+    padding: 16,
+    gap: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: TEXT_DARK },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  rowIndex: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: RED_ACCENT,
+    width: 16,
+  },
+  rowText: { flex: 1, fontSize: 13, color: TEXT_DARK, lineHeight: 18 },
+  contactRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  contactNumber: { fontSize: 13, fontWeight: '700', color: RED_ACCENT },
 });
