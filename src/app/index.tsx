@@ -50,6 +50,7 @@ export default function ChatScreen() {
   const { user } = useUser(); 
   
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const textInputRef = useRef<TextInput>(null);
   const [isBotOnline, setIsBotOnline] = useState(true);
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -63,6 +64,63 @@ export default function ChatScreen() {
   // "gathering local info" screen shown for 5s after the first message)
   // -> 'chat' (normal chat screen).
   const [stage, setStage] = useState<'welcome' | 'loading' | 'chat'>('welcome');
+
+  // The first message a user types is held here — it isn't actually sent
+  // to the bot (and doesn't appear in the chat) until the "gathering info"
+  // screen has finished and we've transitioned into the chat stage.
+  const [pendingFirstMessage, setPendingFirstMessage] = useState<Message | null>(null);
+
+  // Shared animated values driving the transition between the three
+  // screens. 'fancy' = pop/slide + fade (welcome -> loading).
+  // 'fade' = plain crossfade (loading -> chat).
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const translateYAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+  // A small delay (e.g., 300-500ms) is often needed to allow 
+  // navigation/screen animations to finish before the keyboard appears.
+  const timer = setTimeout(() => {
+    textInputRef.current?.focus();
+  }, 500);
+
+  return () => clearTimeout(timer);
+}, []);
+
+  const goToStage = (next: 'welcome' | 'loading' | 'chat', variant: 'fancy' | 'fade' = 'fade') => {
+    const exitAnimations =
+      variant === 'fancy'
+        ? [
+            Animated.timing(fadeAnim, { toValue: 0, duration: 280, useNativeDriver: true }),
+            Animated.timing(scaleAnim, { toValue: 0.9, duration: 280, useNativeDriver: true }),
+            Animated.timing(translateYAnim, { toValue: -18, duration: 280, useNativeDriver: true }),
+          ]
+        : [Animated.timing(fadeAnim, { toValue: 0, duration: 400, useNativeDriver: true })];
+
+    Animated.parallel(exitAnimations).start(() => {
+      setStage(next);
+
+      fadeAnim.setValue(0);
+      if (variant === 'fancy') {
+        scaleAnim.setValue(1.08);
+        translateYAnim.setValue(18);
+      } else {
+        scaleAnim.setValue(1);
+        translateYAnim.setValue(0);
+      }
+
+      const enterAnimations =
+        variant === 'fancy'
+          ? [
+              Animated.timing(fadeAnim, { toValue: 1, duration: 450, useNativeDriver: true }),
+              Animated.spring(scaleAnim, { toValue: 1, friction: 7, tension: 60, useNativeDriver: true }),
+              Animated.spring(translateYAnim, { toValue: 0, friction: 7, tension: 60, useNativeDriver: true }),
+            ]
+          : [Animated.timing(fadeAnim, { toValue: 1, duration: 450, useNativeDriver: true })];
+
+      Animated.parallel(enterAnimations).start();
+    });
+  };
 
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
@@ -124,88 +182,107 @@ const handleCamera = async () => {
   }
 };
 
-  const handleSend = async () => {
-  if (!inputText.trim() && !selectedImage) return;
+  const sendMessageToBot = async (userMessage: Message) => {
+    const thinkingId = (Date.now() + 1).toString();
+    setMessages(prev => [...prev, { id: thinkingId, text: 'Thinking...', sender: 'bot' }]);
 
-  const isFirstMessage = stage === 'welcome';
+    try {
+      let response;
 
-  const userMessage: Message = {
-    id: Date.now().toString(),
-    text: inputText.trim() || undefined,
-    image: selectedImage || undefined,
-    sender: 'user'
-  };
+      if (userMessage.image) {
+        const formData = new FormData();
 
-  setMessages(prev => [...prev, userMessage]);
-  setInputText('');
-  setSelectedImage(null); // Clear image after queuing
-  setShowMenu(false);
+        // 1. Properly format the image object for React Native
+        const filename = userMessage.image.split('/').pop() || 'photo.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : `image/jpeg`;
 
-  // On the very first message, show a mock "gathering local info" screen
-  // for 5 seconds before dropping the user into the chat. The message is
-  // still sent to the bot in the background below, so the reply is ready
-  // (or on its way) by the time the chat screen appears.
-  if (isFirstMessage) {
-    setStage('loading');
-    setTimeout(() => setStage('chat'), 5000);
-  }
+        // 2. Append using the specific structure required by React Native
+        formData.append('image', {
+          uri: userMessage.image,
+          name: filename,
+          type: type,
+        } as any);
 
-  const thinkingId = (Date.now() + 1).toString();
-  setMessages(prev => [...prev, { id: thinkingId, text: 'Thinking...', sender: 'bot' }]);
+        // 3. Append text message if it exists
+        if (userMessage.text) {
+          formData.append('message', userMessage.text);
+        }
 
-  try {
-    let response;
-
-    if (userMessage.image) {
-      const formData = new FormData();
-
-      // 1. Properly format the image object for React Native
-      const filename = userMessage.image.split('/').pop() || 'photo.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : `image/jpeg`;
-
-      // 2. Append using the specific structure required by React Native
-      formData.append('image', {
-        uri: userMessage.image,
-        name: filename,
-        type: type,
-      } as any);
-
-      // 3. Append text message if it exists
-      if (userMessage.text) {
-        formData.append('message', userMessage.text);
+        // 4. Send the request
+        // IMPORTANT: Do NOT set Content-Type header.
+        // The React Native network layer automatically sets it
+        // with the correct boundary when it detects a FormData body.
+        response = await fetch('http://127.0.0.1:8000/chat/image', {
+          method: 'POST',
+          body: formData,
+        });
+      } else {
+        // Standard JSON for text-only
+        response = await fetch('http://127.0.0.1:8000/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: userMessage.text, conversation_id: null }),
+        });
       }
 
-      // 4. Send the request
-      // IMPORTANT: Do NOT set Content-Type header. 
-      // The React Native network layer automatically sets it 
-      // with the correct boundary when it detects a FormData body.
-      response = await fetch('http://127.0.0.1:8000/chat/image', {
-        method: 'POST',
-        body: formData,
-      });
-    } else {
-      // Standard JSON for text-only
-      response = await fetch('http://127.0.0.1:8000/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage.text, conversation_id: null }),
-      });
+      if (!response.ok) throw new Error('Network response was not ok');
+      const data = await response.json();
+
+      setMessages(prev =>
+        prev.map(msg => msg.id === thinkingId ? { ...msg, text: data.answer } : msg)
+      );
+    } catch (error) {
+      console.error('API Error:', error);
+      setMessages(prev =>
+        prev.map(msg => msg.id === thinkingId ? { ...msg, text: 'Error connecting to server.' } : msg)
+      );
+    }
+  };
+
+  // Once the "gathering info" screen finishes and we land in the chat
+  // stage, actually deliver the first message that was held back.
+  useEffect(() => {
+    if (stage === 'chat' && pendingFirstMessage) {
+      const msg = pendingFirstMessage;
+      setPendingFirstMessage(null);
+      setMessages(prev => [...prev, msg]);
+      sendMessageToBot(msg);
+    }
+  }, [stage]);
+
+  const handleSend = async () => {
+    if (!inputText.trim() && !selectedImage) return;
+
+    const isFirstMessage = stage === 'welcome';
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: inputText.trim() || undefined,
+      image: selectedImage || undefined,
+      sender: 'user'
+    };
+
+    setInputText('');
+    setSelectedImage(null); // Clear image after queuing
+    setShowMenu(false);
+
+    if (isFirstMessage) {
+      // Hold the message — don't touch `messages` or the bot API yet.
+      // Show the mock "gathering local info" screen for 5 seconds, then
+      // transition (with a fade) into the chat, which is when the message
+      // actually gets sent.
+      setPendingFirstMessage(userMessage);
+      goToStage('loading', 'fancy');
+      setTimeout(() => {
+        goToStage('chat', 'fade');
+      }, 5000);
+      return;
     }
 
-    if (!response.ok) throw new Error('Network response was not ok');
-    const data = await response.json();
-
-    setMessages(prev =>
-      prev.map(msg => msg.id === thinkingId ? { ...msg, text: data.answer } : msg)
-    );
-  } catch (error) {
-    console.error('API Error:', error);
-    setMessages(prev =>
-      prev.map(msg => msg.id === thinkingId ? { ...msg, text: 'Error connecting to server.' } : msg)
-    );
-  }
-};
+    setMessages(prev => [...prev, userMessage]);
+    await sendMessageToBot(userMessage);
+  };
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isUser = item.sender === 'user';
@@ -278,6 +355,7 @@ const handleCamera = async () => {
         </TouchableOpacity>
 
         <TextInput
+          ref={textInputRef}
           style={styles.textInput}
           placeholder="Message..."
           placeholderTextColor={TEXT_MUTED}
@@ -320,7 +398,15 @@ const handleCamera = async () => {
             <Pressable style={styles.overlay} onPress={() => setShowMenu(false)} />
           )}
 
-          <View style={styles.welcomeContainer}>
+          <Animated.View
+            style={[
+              styles.welcomeContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ scale: scaleAnim }, { translateY: translateYAnim }],
+              },
+            ]}
+          >
             <NeoView containerStyle={styles.welcomeLogoOuter} innerStyle={styles.welcomeLogoInner} borderRadius={40}>
               <Text style={styles.welcomeLogoText}>AI</Text>
             </NeoView>
@@ -330,7 +416,7 @@ const handleCamera = async () => {
             <View style={styles.welcomeInputWrapper}>
               {renderInputBar()}
             </View>
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </SafeAreaView>
     );
@@ -343,7 +429,15 @@ const handleCamera = async () => {
 
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
+        <Animated.View
+          style={[
+            styles.loadingContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ scale: scaleAnim }, { translateY: translateYAnim }],
+            },
+          ]}
+        >
           <View style={styles.loadingIconWrapper}>
             <Animated.View
               style={[
@@ -360,7 +454,7 @@ const handleCamera = async () => {
           <Text style={styles.loadingSubtitle}>
             Looking into resources near Lübeck, Germany…
           </Text>
-        </View>
+        </Animated.View>
       </SafeAreaView>
     );
   }
@@ -368,7 +462,15 @@ const handleCamera = async () => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        
+        <Animated.View
+          style={[
+            styles.keyboardView,
+            {
+              opacity: fadeAnim,
+              transform: [{ scale: scaleAnim }, { translateY: translateYAnim }],
+            },
+          ]}
+        >
         {/* Full Screen Overlay to dismiss menu */}
         {showMenu && (
           <Pressable 
@@ -431,6 +533,7 @@ const handleCamera = async () => {
           {renderInputBar()}
         </View>
 
+        </Animated.View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
