@@ -3,6 +3,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
+  Easing,
   FlatList,
   Image,
   Keyboard,
@@ -57,10 +59,29 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
 
-  // The app starts on a blank "welcome" screen. As soon as the first
-  // message is sent, `messages` becomes non-empty and we switch to the
-  // normal chat view.
-  const hasStartedChat = messages.length > 0;
+  // App flow: 'welcome' (blank landing screen) -> 'loading' (mock
+  // "gathering local info" screen shown for 5s after the first message)
+  // -> 'chat' (normal chat screen).
+  const [stage, setStage] = useState<'welcome' | 'loading' | 'chat'>('welcome');
+
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (stage !== 'loading') return;
+
+    pulseAnim.setValue(0);
+    const loop = Animated.loop(
+      Animated.timing(pulseAnim, {
+        toValue: 1,
+        duration: 1400,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      })
+    );
+    loop.start();
+
+    return () => loop.stop();
+  }, [stage]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -106,6 +127,8 @@ const handleCamera = async () => {
   const handleSend = async () => {
   if (!inputText.trim() && !selectedImage) return;
 
+  const isFirstMessage = stage === 'welcome';
+
   const userMessage: Message = {
     id: Date.now().toString(),
     text: inputText.trim() || undefined,
@@ -117,6 +140,15 @@ const handleCamera = async () => {
   setInputText('');
   setSelectedImage(null); // Clear image after queuing
   setShowMenu(false);
+
+  // On the very first message, show a mock "gathering local info" screen
+  // for 5 seconds before dropping the user into the chat. The message is
+  // still sent to the bot in the background below, so the reply is ready
+  // (or on its way) by the time the chat screen appears.
+  if (isFirstMessage) {
+    setStage('loading');
+    setTimeout(() => setStage('chat'), 5000);
+  }
 
   const thinkingId = (Date.now() + 1).toString();
   setMessages(prev => [...prev, { id: thinkingId, text: 'Thinking...', sender: 'bot' }]);
@@ -280,7 +312,7 @@ const handleCamera = async () => {
   );
 
   // ---- Welcome screen (shown before the first message is sent) ----
-  if (!hasStartedChat) {
+  if (stage === 'welcome') {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -300,6 +332,35 @@ const handleCamera = async () => {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
+
+  // ---- Loading screen (mock "gathering local info" step) ----
+  if (stage === 'loading') {
+    const ringScale = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] });
+    const ringOpacity = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] });
+
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <View style={styles.loadingIconWrapper}>
+            <Animated.View
+              style={[
+                styles.loadingPulseRing,
+                { transform: [{ scale: ringScale }], opacity: ringOpacity },
+              ]}
+            />
+            <NeoView containerStyle={styles.loadingIconOuter} innerStyle={styles.loadingIconInner} borderRadius={44}>
+              <Ionicons name="location" size={36} color="#FFFFFF" />
+            </NeoView>
+          </View>
+
+          <Text style={styles.loadingTitle}>Gathering local information</Text>
+          <Text style={styles.loadingSubtitle}>
+            Looking into resources near Lübeck, Germany…
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -562,4 +623,50 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   welcomeInputWrapper: { width: '100%' },
+
+  /* Loading Screen (mock local-info lookup) */
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  loadingIconWrapper: {
+    width: 96,
+    height: 96,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  loadingPulseRing: {
+    position: 'absolute',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 3,
+    borderColor: RED_ACCENT,
+  },
+  loadingIconOuter: {},
+  loadingIconInner: {
+    width: 88,
+    height: 88,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: RED_ACCENT,
+    borderRadius: 44,
+  },
+  loadingTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: TEXT_DARK,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  loadingSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: TEXT_MUTED,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
 });
