@@ -49,21 +49,39 @@ def list_conversations() -> list[dict]:
     return [dict(row) for row in rows]
 
 
+def get_active_agent(conversation_id: str) -> str | None:
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT active_agent FROM conversations WHERE id = ?",
+            (conversation_id,),
+        ).fetchone()
+    return row["active_agent"] if row else None
+
+
+def set_active_agent(conversation_id: str, agent: str | None) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE conversations SET active_agent = ? WHERE id = ?",
+            (agent, conversation_id),
+        )
+
+
 def insert_message(
     conversation_id: str,
     role: str,
     content: str,
     sources: list[dict] | None = None,
+    agent: str | None = None,
 ) -> str:
     message_id = str(uuid.uuid4())
     sources_json = json.dumps(sources) if sources is not None else None
     with _connect() as conn:
         conn.execute(
             """
-            INSERT INTO messages (id, conversation_id, role, content, sources)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO messages (id, conversation_id, role, content, sources, agent)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (message_id, conversation_id, role, content, sources_json),
+            (message_id, conversation_id, role, content, sources_json, agent),
         )
     return message_id
 
@@ -72,7 +90,7 @@ def list_messages(conversation_id: str) -> list[dict]:
     with _connect() as conn:
         rows = conn.execute(
             """
-            SELECT id, conversation_id, role, content, sources, created_at
+            SELECT id, conversation_id, role, content, sources, agent, created_at
             FROM messages
             WHERE conversation_id = ?
             ORDER BY created_at ASC
