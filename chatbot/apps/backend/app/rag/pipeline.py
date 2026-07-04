@@ -1,5 +1,6 @@
 """Retrieve-then-generate RAG query pipeline: embed the query, search Milvus
 Lite for relevant chunks, and ask the LLM to answer using those chunks."""
+import base64
 from dataclasses import dataclass
 
 from app.core.config import settings
@@ -46,3 +47,23 @@ def answer_query(query: str, top_k: int | None = None) -> RagResult:
         for chunk in chunks
     ]
     return RagResult(answer=answer, sources=sources)
+
+
+def build_image_prompt(query: str | None, image_bytes: bytes, mime_type: str) -> list[dict]:
+    b64 = base64.b64encode(image_bytes).decode()
+    content = [
+        {"type": "text", "text": query or "Describe this image."},
+        {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64}"}},
+    ]
+    return [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": content},
+    ]
+
+
+def answer_query_with_image(query: str | None, image_bytes: bytes, mime_type: str) -> RagResult:
+    """Vision variant of answer_query. No retrieval step - the knowledge base
+    is text-only, so this goes straight to the model with the image."""
+    messages = build_image_prompt(query, image_bytes, mime_type)
+    response = get_client().chat.completions.create(model=settings.vision_model, messages=messages)
+    return RagResult(answer=response.choices[0].message.content, sources=[])
