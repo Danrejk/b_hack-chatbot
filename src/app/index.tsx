@@ -35,6 +35,7 @@ type Message = {
   type?: string; // e.g. "instruction" — comes from the bot API alongside the message
   pending?: boolean; // true while we're still waiting on the bot's actual response
   confirmed?: boolean;
+  requires_ack?: boolean
 };
 
 // Neomorphism Helper Component
@@ -234,7 +235,7 @@ const handleCamera = async () => {
       const data = await response.json();
 
       setMessages(prev =>
-        prev.map(msg => msg.id === thinkingId ? { ...msg, text: data.answer, type: data.type, pending: false } : msg)
+        prev.map(msg => msg.id === thinkingId ? { ...msg, text: data.answer, type: data.type, pending: false, requires_ack: data.requires_ack } : msg)
       );
     } catch (error) {
       console.error('API Error:', error);
@@ -278,7 +279,8 @@ const handleCamera = async () => {
       id: Date.now().toString(),
       text: inputText.trim() || undefined,
       image: selectedImage || undefined,
-      sender: 'user'
+      sender: 'user',
+      requires_ack: false
     };
 
     setInputText('');
@@ -302,25 +304,19 @@ const handleCamera = async () => {
     await sendMessageToBot(userMessage);
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
+const renderMessage = ({ item }: { item: Message }) => {
     const isUser = item.sender === 'user';
 
-    // TODO: restore this once the API actually sends `type: "instruction"`:
-    // const isInstruction = item.type === 'instruction';
-    const isInstruction = true; // forced on for now so the checkmark button can be tested
-
-    const showInstructionButton = !isUser && isInstruction && !item.pending;
+    // The button shows only if it's a bot message, it requires acknowledgment,
+    // it isn't still "pending" (thinking), and it hasn't been confirmed yet.
+    const showInstructionButton = !isUser && !!item.requires_ack && !item.pending;
 
     return (
       <View style={styles.messageColumn}>
         <View style={[styles.messageWrapper, isUser ? styles.messageWrapperUser : styles.messageWrapperBot]}>
-          {/* bubbleGroup has no width of its own — it just takes the shape of
-              the bubble below, and the checkmark button (alignItems: stretch
-              by default) matches that width exactly. */}
           <View style={styles.bubbleGroup}>
             <NeoView 
               containerStyle={styles.bubbleShadow} 
-              // If it's an image, we reduce the padding so it fits tighter inside the bubble
               innerStyle={[styles.messageBubble, isUser ? styles.userBubble : styles.botBubble, item.image && { paddingHorizontal: 6, paddingVertical: 6 }]}
               borderRadius={20}
             >
@@ -334,25 +330,26 @@ const handleCamera = async () => {
               )}
             </NeoView>
 
-{showInstructionButton && (
-  <TouchableOpacity 
-    style={styles.instructionButtonWrapper} 
-    onPress={() => handleInstructionConfirm(item.id)} // Pass the ID
-    disabled={item.confirmed} // Disable after click
-    activeOpacity={item.confirmed ? 1 : 0.85} // Remove click effect if disabled
-  >
-    <NeoView 
-      containerStyle={styles.instructionCheckOuter} 
-      innerStyle={[
-        styles.instructionCheckInner, 
-        item.confirmed && styles.instructionCheckDisabled // Apply gray style
-      ]} 
-      borderRadius={16}
-    >
-      <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-    </NeoView>
-  </TouchableOpacity>
-)}
+            {/* Checkmark button only renders if showInstructionButton is true */}
+            {showInstructionButton && (
+              <TouchableOpacity 
+                style={styles.instructionButtonWrapper} 
+                onPress={() => handleInstructionConfirm(item.id)} 
+                disabled={item.confirmed} 
+                activeOpacity={item.confirmed ? 1 : 0.85} 
+              >
+                <NeoView 
+                  containerStyle={styles.instructionCheckOuter} 
+                  innerStyle={[
+                    styles.instructionCheckInner, 
+                    item.confirmed && styles.instructionCheckDisabled 
+                  ]} 
+                  borderRadius={16}
+                >
+                  <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                </NeoView>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
