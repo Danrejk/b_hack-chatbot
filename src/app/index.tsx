@@ -455,12 +455,16 @@ const renderMessage = ({ item }: { item: Message }) => {
               },
             ]}
           >
-            <NeoView containerStyle={styles.welcomeLogoOuter} innerStyle={styles.welcomeLogoInner} borderRadius={12}>
-              <Image 
-            source={require('../../assets/expo.icon/Assets/LightHaus.jpeg')} 
-            style={styles.logoImage} 
-          />
-        </NeoView>
+            <NeoView 
+            containerStyle={styles.welcomeBigLogoOuter} 
+            innerStyle={styles.welcomeBigLogoInner} 
+            borderRadius={20}
+          >
+            <Image 
+              source={require('../../assets/expo.icon/Assets/LightHaus.jpeg')} 
+              style={styles.welcomeBigLogoImage} 
+            />
+          </NeoView>
 
             <Text style={styles.welcomeTitle}>Hi, how can I help you?</Text>
 
@@ -600,6 +604,7 @@ const renderMessage = ({ item }: { item: Message }) => {
 }
 
 const styles = StyleSheet.create({
+
   logoImage: {
   width: 44,
   height: 44,
@@ -622,7 +627,28 @@ const styles = StyleSheet.create({
 
   instructionCheckDisabled: {
   backgroundColor: '#BDBDBD', // Gray color
-},
+  },
+  welcomeBigLogoOuter: {
+    width: 160,
+    height: 160,
+    borderRadius: 20,
+  },
+  welcomeBigLogoInner: {
+    width: 160,
+    height: 160,
+    borderRadius: 20,
+    backgroundColor: BG_COLOR,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  welcomeBigLogoImage: {
+    width: 140,
+    height: 140,
+    borderRadius: 16,
+    borderWidth: 0.5,
+    borderColor: '#D1D5DB',
+    resizeMode: 'cover',
+  },
 
   /* HEAVILY MAXED OUT SHADOWS */
   neoDark: {
