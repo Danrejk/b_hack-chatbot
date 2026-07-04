@@ -14,6 +14,7 @@ class SourceOut(BaseModel):
 
 class ChatResponse(BaseModel):
     conversation_id: str
+    message_id: str
     answer: str
     sources: list[SourceOut]
     agent: str | None = None

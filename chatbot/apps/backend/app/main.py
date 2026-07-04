@@ -45,15 +45,10 @@ def _get_or_create_conversation(conversation_id: str | None) -> str:
     return conversation_id
 
 
-@app.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest) -> ChatResponse:
-    conversation_id = _get_or_create_conversation(request.conversation_id)
-
-    repository.insert_message(conversation_id, "user", request.message)
-
-    result = run_turn(conversation_id, request.message)
-
-    repository.insert_message(
+def _persist_assistant_reply(conversation_id: str, result: dict) -> str:
+    """Inserts the assistant's turn and returns its message id, so callers
+    can hand it back to the client (e.g. for the ack endpoint)."""
+    return repository.insert_message(
         conversation_id,
         "assistant",
         result["answer"],
@@ -61,8 +56,20 @@ def chat(request: ChatRequest) -> ChatResponse:
         agent=result["agent"],
         requires_ack=result["requires_ack"],
     )
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(request: ChatRequest) -> ChatResponse:
+    conversation_id = _get_or_create_conversation(request.conversation_id)
+
+    repository.insert_message(conversation_id, "user", request.message)
+
+    result = run_turn(conversation_id, request.message)
+    message_id = _persist_assistant_reply(conversation_id, result)
+
     return ChatResponse(
         conversation_id=conversation_id,
+        message_id=message_id,
         answer=result["answer"],
         sources=result["sources"],
         agent=result["agent"],
@@ -81,17 +88,11 @@ async def chat_voice(
     repository.insert_message(conversation_id, "user", transcript)
 
     result = run_turn(conversation_id, transcript)
+    message_id = _persist_assistant_reply(conversation_id, result)
 
-    repository.insert_message(
-        conversation_id,
-        "assistant",
-        result["answer"],
-        sources=result["sources"],
-        agent=result["agent"],
-        requires_ack=result["requires_ack"],
-    )
     return VoiceChatResponse(
         conversation_id=conversation_id,
+        message_id=message_id,
         answer=result["answer"],
         sources=result["sources"],
         agent=result["agent"],
@@ -113,17 +114,11 @@ async def chat_image(
     repository.insert_message(conversation_id, "user", message or "[Image]")
 
     result = run_turn(conversation_id, message, await image.read(), image.content_type)
+    message_id = _persist_assistant_reply(conversation_id, result)
 
-    repository.insert_message(
-        conversation_id,
-        "assistant",
-        result["answer"],
-        sources=result["sources"],
-        agent=result["agent"],
-        requires_ack=result["requires_ack"],
-    )
     return ChatResponse(
         conversation_id=conversation_id,
+        message_id=message_id,
         answer=result["answer"],
         sources=result["sources"],
         agent=result["agent"],
@@ -131,13 +126,30 @@ async def chat_image(
     )
 
 
-@app.post("/conversations/{conversation_id}/messages/{message_id}/ack")
-def acknowledge_message(conversation_id: str, message_id: str) -> dict:
+ACK_REPLY_MESSAGE = "I have read and understood the instructions. What should I do next?"
+
+
+@app.post("/conversations/{conversation_id}/messages/{message_id}/ack", response_model=ChatResponse)
+def acknowledge_message(conversation_id: str, message_id: str) -> ChatResponse:
     if repository.get_conversation(conversation_id) is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     repository.acknowledge_message(conversation_id, message_id)
-    return {"acknowledged": True}
+
+    # Acknowledging is itself a turn: tell the model the user read the
+    # instruction and is ready to continue, so it can carry on guiding them.
+    repository.insert_message(conversation_id, "user", ACK_REPLY_MESSAGE)
+    result = run_turn(conversation_id, ACK_REPLY_MESSAGE)
+    new_message_id = _persist_assistant_reply(conversation_id, result)
+
+    return ChatResponse(
+        conversation_id=conversation_id,
+        message_id=new_message_id,
+        answer=result["answer"],
+        sources=result["sources"],
+        agent=result["agent"],
+        requires_ack=result["requires_ack"],
+    )
 
 
 @app.get("/conversations", response_model=list[ConversationOut])

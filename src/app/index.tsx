@@ -18,6 +18,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import RescuePlanPanel from '../components/rescue-plan-panel';
 import { useUser } from '../context/UserContext';
 
 // Theme Constants
@@ -35,7 +36,8 @@ type Message = {
   type?: string; // e.g. "instruction" — comes from the bot API alongside the message
   pending?: boolean; // true while we're still waiting on the bot's actual response
   confirmed?: boolean;
-  requires_ack?: boolean
+  requires_ack?: boolean;
+  backendId?: string; // the message's real id in the backend, needed to ack it
 };
 
 // Neomorphism Helper Component
@@ -64,6 +66,7 @@ export default function ChatScreen() {
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
   // App flow: 'welcome' (blank landing screen) -> 'loading' (mock
   // "gathering local info" screen shown for 5s after the first message)
@@ -214,6 +217,11 @@ const handleCamera = async () => {
           formData.append('message', userMessage.text);
         }
 
+        // 3b. Keep replying within the same conversation, if we're in one
+        if (conversationId) {
+          formData.append('conversation_id', conversationId);
+        }
+
         // 4. Send the request
         // IMPORTANT: Do NOT set Content-Type header.
         // The React Native network layer automatically sets it
@@ -227,15 +235,24 @@ const handleCamera = async () => {
         response = await fetch('http://127.0.0.1:8000/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: userMessage.text, conversation_id: null }),
+          body: JSON.stringify({ message: userMessage.text, conversation_id: conversationId }),
         });
       }
 
       if (!response.ok) throw new Error('Network response was not ok');
       const data = await response.json();
 
+      // Remember which conversation we're in so the next message continues
+      // it instead of starting a fresh one (the backend's memory and
+      // sticky agent routing are both keyed off this id).
+      if (data.conversation_id) {
+        setConversationId(data.conversation_id);
+      }
+
       setMessages(prev =>
-        prev.map(msg => msg.id === thinkingId ? { ...msg, text: data.answer, type: data.type, pending: false, requires_ack: data.requires_ack } : msg)
+        prev.map(msg => msg.id === thinkingId
+          ? { ...msg, text: data.answer, type: data.type, pending: false, requires_ack: data.requires_ack, backendId: data.message_id }
+          : msg)
       );
     } catch (error) {
       console.error('API Error:', error);
@@ -245,18 +262,49 @@ const handleCamera = async () => {
     }
   };
 
-  // TODO: this currently just adds a local message. Once the backend is
-  // ready, replace the body of this function with an actual POST to the
-  // API (e.g. confirming the instruction was completed) instead of just
-  // appending text locally.
-  const handleInstructionConfirm = (id: string) => {
+  // Acknowledges the instruction with the backend (POST .../ack), which
+  // marks it read AND has the agent continue guiding the user through the
+  // next steps - so the reply we get back is a real, new bot message.
+  const handleInstructionConfirm = async (id: string) => {
+    const target = messages.find(m => m.id === id);
+    if (!conversationId || !target?.backendId) {
+      console.error('Cannot acknowledge message: missing conversationId or backendId');
+      return;
+    }
+
+    setMessages(prev => prev.map(m => m.id === id ? { ...m, confirmed: true } : m));
+
     const confirmMessage: Message = {
       id: Date.now().toString(),
-      text: 'OK (change to post to api)',
+      text: "OK, I've read it.",
       sender: 'user',
     };
-    setMessages(prev => [...prev, confirmMessage]);
-    setMessages(prev => prev.map(m => m.id === id ? { ...m, confirmed: true } : m));
+    const thinkingId = (Date.now() + 1).toString();
+    setMessages(prev => [
+      ...prev,
+      confirmMessage,
+      { id: thinkingId, text: 'Thinking...', sender: 'bot', pending: true },
+    ]);
+
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/conversations/${conversationId}/messages/${target.backendId}/ack`,
+        { method: 'POST' }
+      );
+      if (!response.ok) throw new Error('Network response was not ok');
+      const data = await response.json();
+
+      setMessages(prev =>
+        prev.map(msg => msg.id === thinkingId
+          ? { ...msg, text: data.answer, type: data.type, pending: false, requires_ack: data.requires_ack, backendId: data.message_id }
+          : msg)
+      );
+    } catch (error) {
+      console.error('Ack API Error:', error);
+      setMessages(prev =>
+        prev.map(msg => msg.id === thinkingId ? { ...msg, text: 'Error connecting to server.', pending: false } : msg)
+      );
+    }
   };
 
   // Once the "gathering info" screen finishes and we land in the chat
@@ -591,6 +639,8 @@ const renderMessage = ({ item }: { item: Message }) => {
         </View>
 
         </Animated.View>
+
+        <RescuePlanPanel />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
