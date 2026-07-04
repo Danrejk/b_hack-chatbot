@@ -774,7 +774,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   
-  messageText: { 
+messageText: { 
     fontSize: 16, 
     lineHeight: 22,
     flexShrink: 1, // Ensures text itself respects the bubble boundaries
@@ -785,13 +785,12 @@ const styles = StyleSheet.create({
     backgroundColor: RED_ACCENT
   },
   botBubble: { borderBottomLeftRadius: 4 },
-  messageText: { fontSize: 16, lineHeight: 22 },
   userText: { color: '#FFFFFF', fontWeight: '600' },
   botText: { color: TEXT_DARK },
   messageImage: { 
     width: 220, 
     height: 220, 
-    borderRadius: 14, // Fits nicely inside the bubble
+    borderRadius: 14,
   },
 
   /* Instruction confirm (checkmark) button, shown under bot instruction
