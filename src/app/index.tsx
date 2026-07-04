@@ -455,9 +455,12 @@ const renderMessage = ({ item }: { item: Message }) => {
               },
             ]}
           >
-            <NeoView containerStyle={styles.welcomeLogoOuter} innerStyle={styles.welcomeLogoInner} borderRadius={40}>
-              <Text style={styles.welcomeLogoText}>AI</Text>
-            </NeoView>
+            <NeoView containerStyle={styles.welcomeLogoOuter} innerStyle={styles.welcomeLogoInner} borderRadius={12}>
+              <Image 
+            source={require('../../assets/expo.icon/Assets/LightHaus.jpeg')} 
+            style={styles.logoImage} 
+          />
+        </NeoView>
 
             <Text style={styles.welcomeTitle}>Hi, how can I help you?</Text>
 
@@ -597,6 +600,16 @@ const renderMessage = ({ item }: { item: Message }) => {
 }
 
 const styles = StyleSheet.create({
+  logoImage: {
+  width: 44,
+  height: 44,
+  // 8 to 12 is the sweet spot for a "rounded square"
+  borderRadius: 10, 
+  // 0.5 to 1.0 is great for a "very thin" line
+  borderWidth: 0.5, 
+  borderColor: '#D1D5DB', // A light, subtle gray
+  resizeMode: 'cover',
+},
   container: { flex: 1, backgroundColor: BG_COLOR },
   keyboardView: { flex: 1 },
   
