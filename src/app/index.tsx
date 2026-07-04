@@ -487,7 +487,16 @@ const handleCamera = async () => {
                 <Text style={styles.logoText}>AI</Text>
               </NeoView>
               <View>
-                <Text style={styles.headerTitle}>CHUCK NORRIS</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons 
+                    name="location-outline" 
+                    size={16} 
+                    color={TEXT_DARK} 
+                    style={{ marginRight: 4 }} 
+                  />
+                  <Text style={styles.headerTitle}>Lubeck, Germany</Text>
+                </View>
+                
                 <View style={[styles.headerSubtitleContainer, !isBotOnline && styles.headerSubtitleOfflineContainer]}>
                   <Text style={styles.headerSubtitle}>
                     {isBotOnline ? 'ONLINE' : 'OFFLINE'}
