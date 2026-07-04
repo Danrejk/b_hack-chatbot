@@ -37,9 +37,12 @@ RESPONSE_FORMAT = {
                 "requires_ack": {
                     "type": "boolean",
                     "description": (
-                        "True if `reply` contains a directive the user must "
-                        "read and act on now (e.g. a shelter or evacuation "
-                        "instruction)."
+                        "True only when `reply` is a statement telling the "
+                        "user what to do right now (e.g. 'move to the "
+                        "basement', 'evacuate now'). False when `reply` is "
+                        "only asking the user a clarifying question, even "
+                        "an urgent-sounding one - questions never require "
+                        "acknowledgment, only directives do."
                     ),
                 },
             },
