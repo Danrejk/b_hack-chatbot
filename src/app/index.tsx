@@ -23,6 +23,7 @@ import { useUser } from '../context/UserContext';
 // Theme Constants
 const BG_COLOR = '#EBEEF2';
 const RED_ACCENT = '#9E3641'; // DULL, MUTED RED
+const GREEN_ACCENT = '#4C8C5B'; // DULL, MUTED GREEN
 const TEXT_DARK = '#2D3142';
 const TEXT_MUTED = '#8E94A3';
 
@@ -31,6 +32,8 @@ type Message = {
   text?: string;
   image?: string;
   sender: 'user' | 'bot';
+  type?: string; // e.g. "instruction" — comes from the bot API alongside the message
+  pending?: boolean; // true while we're still waiting on the bot's actual response
 };
 
 // Neomorphism Helper Component
@@ -184,7 +187,7 @@ const handleCamera = async () => {
 
   const sendMessageToBot = async (userMessage: Message) => {
     const thinkingId = (Date.now() + 1).toString();
-    setMessages(prev => [...prev, { id: thinkingId, text: 'Thinking...', sender: 'bot' }]);
+    setMessages(prev => [...prev, { id: thinkingId, text: 'Thinking...', sender: 'bot', pending: true }]);
 
     try {
       let response;
@@ -230,14 +233,27 @@ const handleCamera = async () => {
       const data = await response.json();
 
       setMessages(prev =>
-        prev.map(msg => msg.id === thinkingId ? { ...msg, text: data.answer } : msg)
+        prev.map(msg => msg.id === thinkingId ? { ...msg, text: data.answer, type: data.type, pending: false } : msg)
       );
     } catch (error) {
       console.error('API Error:', error);
       setMessages(prev =>
-        prev.map(msg => msg.id === thinkingId ? { ...msg, text: 'Error connecting to server.' } : msg)
+        prev.map(msg => msg.id === thinkingId ? { ...msg, text: 'Error connecting to server.', pending: false } : msg)
       );
     }
+  };
+
+  // TODO: this currently just adds a local message. Once the backend is
+  // ready, replace the body of this function with an actual POST to the
+  // API (e.g. confirming the instruction was completed) instead of just
+  // appending text locally.
+  const handleInstructionConfirm = () => {
+    const confirmMessage: Message = {
+      id: Date.now().toString(),
+      text: 'OK (change to post to api)',
+      sender: 'user',
+    };
+    setMessages(prev => [...prev, confirmMessage]);
   };
 
   // Once the "gathering info" screen finishes and we land in the chat
@@ -286,24 +302,45 @@ const handleCamera = async () => {
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isUser = item.sender === 'user';
-    
+
+    // TODO: restore this once the API actually sends `type: "instruction"`:
+    // const isInstruction = item.type === 'instruction';
+    const isInstruction = true; // forced on for now so the checkmark button can be tested
+
+    const showInstructionButton = !isUser && isInstruction && !item.pending;
+
     return (
-      <View style={[styles.messageWrapper, isUser ? styles.messageWrapperUser : styles.messageWrapperBot]}>
-        <NeoView 
-          containerStyle={styles.bubbleShadow} 
-          // If it's an image, we reduce the padding so it fits tighter inside the bubble
-          innerStyle={[styles.messageBubble, isUser ? styles.userBubble : styles.botBubble, item.image && { paddingHorizontal: 6, paddingVertical: 6 }]}
-          borderRadius={20}
-        >
-          {item.image && (
-            <Image source={{ uri: item.image }} style={styles.messageImage} resizeMode="cover" />
-          )}
-          {item.text && (
-            <Text style={[styles.messageText, isUser ? styles.userText : styles.botText]}>
-              {item.text}
-            </Text>
-          )}
-        </NeoView>
+      <View style={styles.messageColumn}>
+        <View style={[styles.messageWrapper, isUser ? styles.messageWrapperUser : styles.messageWrapperBot]}>
+          {/* bubbleGroup has no width of its own — it just takes the shape of
+              the bubble below, and the checkmark button (alignItems: stretch
+              by default) matches that width exactly. */}
+          <View style={styles.bubbleGroup}>
+            <NeoView 
+              containerStyle={styles.bubbleShadow} 
+              // If it's an image, we reduce the padding so it fits tighter inside the bubble
+              innerStyle={[styles.messageBubble, isUser ? styles.userBubble : styles.botBubble, item.image && { paddingHorizontal: 6, paddingVertical: 6 }]}
+              borderRadius={20}
+            >
+              {item.image && (
+                <Image source={{ uri: item.image }} style={styles.messageImage} resizeMode="cover" />
+              )}
+              {item.text && (
+                <Text style={[styles.messageText, isUser ? styles.userText : styles.botText]}>
+                  {item.text}
+                </Text>
+              )}
+            </NeoView>
+
+            {showInstructionButton && (
+              <TouchableOpacity style={styles.instructionButtonWrapper} onPress={handleInstructionConfirm} activeOpacity={0.85}>
+                <NeoView containerStyle={styles.instructionCheckOuter} innerStyle={styles.instructionCheckInner} borderRadius={16}>
+                  <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                </NeoView>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
       </View>
     );
   };
@@ -607,10 +644,27 @@ const styles = StyleSheet.create({
   avatarImage: { width: '100%', height: '100%' },
 
   chatContainer: { padding: 16, paddingBottom: 24 },
+  messageColumn: { width: '100%' },
   messageWrapper: { marginVertical: 10, flexDirection: 'row' },
   messageWrapperUser: { justifyContent: 'flex-end' },
   messageWrapperBot: { justifyContent: 'flex-start' },
-  bubbleShadow: { maxWidth: '82%' },
+  bubbleGroup: {
+    maxWidth: '85%',   // This acts as the master width controller
+    flexShrink: 1,     // Allows the bubble to shrink to fit text, or grow to max
+    alignSelf: 'flex-start', // Default for bot
+  },
+  
+  /* Update these to allow full flow */
+  bubbleShadow: {
+    // REMOVED: maxWidth: '82%' — moving this to bubbleGroup
+    flexShrink: 1,
+  },
+  
+  messageText: { 
+    fontSize: 16, 
+    lineHeight: 22,
+    flexShrink: 1, // Ensures text itself respects the bubble boundaries
+  },
   messageBubble: { paddingHorizontal: 18, paddingVertical: 14 },
   userBubble: { 
     borderBottomRightRadius: 4,
@@ -624,6 +678,22 @@ const styles = StyleSheet.create({
     width: 220, 
     height: 220, 
     borderRadius: 14, // Fits nicely inside the bubble
+  },
+
+  /* Instruction confirm (checkmark) button, shown under bot instruction
+     messages once the real reply has arrived. It has no width of its own —
+     it stretches (default flex alignItems: 'stretch') to match the width
+     of the message bubble above it, since both are children of bubbleGroup. */
+  instructionButtonWrapper: {
+    marginTop: 8,
+  },
+  instructionCheckOuter: {},
+  instructionCheckInner: {
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: GREEN_ACCENT,
+    borderRadius: 16,
   },
 
   bottomContainer: { paddingHorizontal: 16, paddingTop: 8, zIndex: 10 },
