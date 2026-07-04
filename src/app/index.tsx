@@ -34,6 +34,7 @@ type Message = {
   sender: 'user' | 'bot';
   type?: string; // e.g. "instruction" — comes from the bot API alongside the message
   pending?: boolean; // true while we're still waiting on the bot's actual response
+  confirmed?: boolean;
 };
 
 // Neomorphism Helper Component
@@ -247,13 +248,14 @@ const handleCamera = async () => {
   // ready, replace the body of this function with an actual POST to the
   // API (e.g. confirming the instruction was completed) instead of just
   // appending text locally.
-  const handleInstructionConfirm = () => {
+  const handleInstructionConfirm = (id: string) => {
     const confirmMessage: Message = {
       id: Date.now().toString(),
       text: 'OK (change to post to api)',
       sender: 'user',
     };
     setMessages(prev => [...prev, confirmMessage]);
+    setMessages(prev => prev.map(m => m.id === id ? { ...m, confirmed: true } : m));
   };
 
   // Once the "gathering info" screen finishes and we land in the chat
@@ -332,13 +334,25 @@ const handleCamera = async () => {
               )}
             </NeoView>
 
-            {showInstructionButton && (
-              <TouchableOpacity style={styles.instructionButtonWrapper} onPress={handleInstructionConfirm} activeOpacity={0.85}>
-                <NeoView containerStyle={styles.instructionCheckOuter} innerStyle={styles.instructionCheckInner} borderRadius={16}>
-                  <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-                </NeoView>
-              </TouchableOpacity>
-            )}
+{showInstructionButton && (
+  <TouchableOpacity 
+    style={styles.instructionButtonWrapper} 
+    onPress={() => handleInstructionConfirm(item.id)} // Pass the ID
+    disabled={item.confirmed} // Disable after click
+    activeOpacity={item.confirmed ? 1 : 0.85} // Remove click effect if disabled
+  >
+    <NeoView 
+      containerStyle={styles.instructionCheckOuter} 
+      innerStyle={[
+        styles.instructionCheckInner, 
+        item.confirmed && styles.instructionCheckDisabled // Apply gray style
+      ]} 
+      borderRadius={16}
+    >
+      <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+    </NeoView>
+  </TouchableOpacity>
+)}
           </View>
         </View>
       </View>
@@ -595,6 +609,10 @@ const styles = StyleSheet.create({
     zIndex: 9,
     elevation: 9,
   },
+
+  instructionCheckDisabled: {
+  backgroundColor: '#BDBDBD', // Gray color
+},
 
   /* HEAVILY MAXED OUT SHADOWS */
   neoDark: {
