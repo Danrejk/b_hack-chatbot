@@ -23,6 +23,8 @@ class Settings:
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
     llm_model: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
+    stt_model: str = os.getenv("STT_MODEL", "whisper-1")
+    vision_model: str = os.getenv("VISION_MODEL", "") or llm_model
 
     # Storage
     sqlite_db_path: Path = _resolve(os.getenv("SQLITE_DB_PATH", "./data/conversations.db"))

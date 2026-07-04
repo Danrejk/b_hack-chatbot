@@ -18,6 +18,10 @@ class ChatResponse(BaseModel):
     sources: list[SourceOut]
 
 
+class VoiceChatResponse(ChatResponse):
+    transcript: str
+
+
 class MessageOut(BaseModel):
     id: str
     role: str
