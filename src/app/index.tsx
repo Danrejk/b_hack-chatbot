@@ -47,6 +47,7 @@ export default function ChatScreen() {
   
   const { user } = useUser(); 
   
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isBotOnline, setIsBotOnline] = useState(true);
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -77,92 +78,99 @@ export default function ChatScreen() {
     }
   };
 
-  const handleCamera = async () => {
-    setShowMenu(false); // Close the menu
-    Keyboard.dismiss();
+const handleCamera = async () => {
+  setShowMenu(false);
+  Keyboard.dismiss();
 
-    // Ask for camera permission
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    
-    if (permissionResult.granted === false) {
-      alert("You've refused to allow this app to access your camera!");
-      return;
-    }
+  const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+  if (!permissionResult.granted) {
+    alert("Permission to access camera is required!");
+    return;
+  }
 
-    // Launch camera
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, // Let the user crop it if they want
-      quality: 0.8, // Slightly compress to save memory
-    });
+  const result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    quality: 0.8,
+  });
 
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      const userMessage: Message = {
-        id: Date.now().toString(),
-        image: result.assets[0].uri, // Grab the local URI
-        sender: 'user'
-      };
-
-      // Add user message with image to UI immediately
-      setMessages(prev => [...prev, userMessage]);
-      
-      // We are deliberately skipping the API call for images per your request
-    }
-  };
+  if (!result.canceled && result.assets && result.assets.length > 0) {
+    // Store the URI in state to be sent when user clicks "Send"
+    setSelectedImage(result.assets[0].uri);
+  }
+};
 
   const handleSend = async () => {
-    if (!inputText.trim()) return;
+  if (!inputText.trim() && !selectedImage) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: inputText.trim(),
-      sender: 'user'
-    };
+  const userMessage: Message = {
+    id: Date.now().toString(),
+    text: inputText.trim() || undefined,
+    image: selectedImage || undefined,
+    sender: 'user'
+  };
 
-    // 1. Add user message to UI immediately
-    setMessages(prev => [...prev, userMessage]);
-    setInputText('');
-    setIsConversationMode(false); // Reset conversation mode on send
-    setShowMenu(false);
+  setMessages(prev => [...prev, userMessage]);
+  setInputText('');
+  setSelectedImage(null); // Clear image after queuing
+  setShowMenu(false);
 
-    // 2. Add "Thinking..." state
-    const thinkingId = (Date.now() + 1).toString();
-    setMessages(prev => [...prev, { id: thinkingId, text: 'Thinking...', sender: 'bot' }]);
+  const thinkingId = (Date.now() + 1).toString();
+  setMessages(prev => [...prev, { id: thinkingId, text: 'Thinking...', sender: 'bot' }]);
 
-    try {
-      // 3. Call the Python FastAPI Backend
-      const response = await fetch('http://127.0.0.1:8000/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: userMessage.text,
-          conversation_id: null,
-        }),
-      });
+  try {
+    let response;
 
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
+    if (userMessage.image) {
+      // Use FormData for images
+      const formData = new FormData();
+      
+      // Extract the filename from the URI
+      const filename = userMessage.image.split('/').pop() || 'photo.jpg';
+      
+      // Infer the file extension
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image/jpeg`;
+
+      // Append the image correctly formatted for React Native FormData
+      formData.append('image', {
+        uri: userMessage.image,
+        name: filename,
+        type: type,
+      } as any);
+      
+      if (userMessage.text) {
+        formData.append('message', userMessage.text);
       }
 
-      const data = await response.json();
-
-      // 4. Replace "Thinking..." with the actual bot answer
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === thinkingId ? { ...msg, text: data.answer } : msg
-        )
-      );
-    } catch (error) {
-      console.error('API Error:', error);
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === thinkingId ? { ...msg, text: 'Sorry, I am having trouble connecting to the server.' } : msg
-        )
-      );
+      response = await fetch('http://127.0.0.1:8000/chat/image', {
+        method: 'POST',
+        body: formData,
+        // REMOVE the 'Content-Type' header if you have it here; 
+        // fetch will automatically set it with the correct boundary.
+      });
+    } else {
+      // Standard JSON for text-only
+      response = await fetch('http://127.0.0.1:8000/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage.text, conversation_id: null }),
+      });
     }
-  };
+
+    if (!response.ok) throw new Error('Network response was not ok');
+    const data = await response.json();
+
+    setMessages(prev =>
+      prev.map(msg => msg.id === thinkingId ? { ...msg, text: data.answer } : msg)
+    );
+  } catch (error) {
+    console.error('API Error:', error);
+    setMessages(prev =>
+      prev.map(msg => msg.id === thinkingId ? { ...msg, text: 'Error connecting to server.' } : msg)
+    );
+  }
+};
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isUser = item.sender === 'user';
