@@ -8,31 +8,45 @@ Open a terminal in `chatbot/apps/backend`:
 
 # 1. Activate virtual environment
 # On macOS/Linux:
-```source .venv/bin/activate```
+```bash
+source chatbot/apps/backend/.venv/bin/activate
+```
 # On Windows:
-```.venv\Scripts\activate```
+```bash
+chatbot\apps\backend\.venv\Scripts\activate
+```
 
 # 2. Set PYTHONPATH to the current directory
-```export PYTHONPATH=$PYTHONPATH:.```
+```bash
+export PYTHONPATH=$PYTHONPATH:.
+```
 
 # 3. Run the FastAPI server
-```python -m uvicorn app.main:app --reload```
+```bash
+python -m uvicorn app.main:app --reload
+```
 
 
 **Terminal 2: Start the Frontend**
 Open a new terminal in the project root folder (where your `package.json` is):
 
-```npx expo start```
+```bash
+npx expo start
+```
 
 
 **Terminal 3: USB Port Tunneling (For physical Android testing)**
 If testing via USB, open a fresh terminal on your laptop to bridge your local servers to your phone:
 
 # Tunnel Expo server
-```adb reverse tcp:8081 tcp:8081```
+```bash
+adb reverse tcp:8081 tcp:8081
+```
 
 # Tunnel FastAPI backend server
-```adb reverse tcp:8000 tcp:8000```
+```bash
+adb reverse tcp:8000 tcp:8000
+```
 
 *(Once running, press `a` in the Expo terminal to force it to open on your phone).*
 
