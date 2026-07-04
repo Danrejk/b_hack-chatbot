@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -7,6 +8,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -24,7 +26,8 @@ const TEXT_MUTED = '#8E94A3';
 
 type Message = {
   id: string;
-  text: string;
+  text?: string;
+  image?: string;
   sender: 'user' | 'bot';
 };
 
@@ -46,6 +49,10 @@ export default function ChatScreen() {
   
   const [isBotOnline, setIsBotOnline] = useState(true);
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [isConversationMode, setIsConversationMode] = useState(false);
+  
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', text: 'Hello! I am your AI assistant. How can I help you today?', sender: 'bot' }
   ]);
@@ -56,7 +63,10 @@ export default function ChatScreen() {
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
     const kShow = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
-    const kHide = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    const kHide = Keyboard.addListener(hideEvent, () => {
+      setKeyboardVisible(false);
+      setIsFocused(false);
+    });
 
     return () => { kShow.remove(); kHide.remove(); };
   }, []);
@@ -64,6 +74,39 @@ export default function ChatScreen() {
   const scrollToBottom = () => {
     if (flatListRef.current) {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  };
+
+  const handleCamera = async () => {
+    setShowMenu(false); // Close the menu
+    Keyboard.dismiss();
+
+    // Ask for camera permission
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      alert("You've refused to allow this app to access your camera!");
+      return;
+    }
+
+    // Launch camera
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true, // Let the user crop it if they want
+      quality: 0.8, // Slightly compress to save memory
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        image: result.assets[0].uri, // Grab the local URI
+        sender: 'user'
+      };
+
+      // Add user message with image to UI immediately
+      setMessages(prev => [...prev, userMessage]);
+      
+      // We are deliberately skipping the API call for images per your request
     }
   };
 
@@ -79,6 +122,8 @@ export default function ChatScreen() {
     // 1. Add user message to UI immediately
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
+    setIsConversationMode(false); // Reset conversation mode on send
+    setShowMenu(false);
 
     // 2. Add "Thinking..." state
     const thinkingId = (Date.now() + 1).toString();
@@ -86,7 +131,6 @@ export default function ChatScreen() {
 
     try {
       // 3. Call the Python FastAPI Backend
-      // NOTE: Ensure adb reverse tcp:8000 tcp:8000 is running if on physical Android device!
       const response = await fetch('http://127.0.0.1:8000/chat', {
         method: 'POST',
         headers: {
@@ -112,7 +156,6 @@ export default function ChatScreen() {
       );
     } catch (error) {
       console.error('API Error:', error);
-      // Replace "Thinking..." with an error message so the user isn't stuck waiting
       setMessages(prev =>
         prev.map(msg =>
           msg.id === thinkingId ? { ...msg, text: 'Sorry, I am having trouble connecting to the server.' } : msg
@@ -123,25 +166,44 @@ export default function ChatScreen() {
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isUser = item.sender === 'user';
+    
     return (
       <View style={[styles.messageWrapper, isUser ? styles.messageWrapperUser : styles.messageWrapperBot]}>
         <NeoView 
           containerStyle={styles.bubbleShadow} 
-          innerStyle={[styles.messageBubble, isUser ? styles.userBubble : styles.botBubble]}
+          // If it's an image, we reduce the padding so it fits tighter inside the bubble
+          innerStyle={[styles.messageBubble, isUser ? styles.userBubble : styles.botBubble, item.image && { paddingHorizontal: 6, paddingVertical: 6 }]}
           borderRadius={20}
         >
-          <Text style={[styles.messageText, isUser ? styles.userText : styles.botText]}>
-            {item.text}
-          </Text>
+          {item.image && (
+            <Image source={{ uri: item.image }} style={styles.messageImage} resizeMode="cover" />
+          )}
+          {item.text && (
+            <Text style={[styles.messageText, isUser ? styles.userText : styles.botText]}>
+              {item.text}
+            </Text>
+          )}
         </NeoView>
       </View>
     );
   };
 
+  // Determine if Mic should be shown
+  const hasSentMessage = messages.some(m => m.sender === 'user');
+  const showMic = (!hasSentMessage || isConversationMode) && !isFocused && !isKeyboardVisible && inputText.length === 0;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         
+        {/* Full Screen Overlay to dismiss menu */}
+        {showMenu && (
+          <Pressable 
+            style={styles.overlay} 
+            onPress={() => setShowMenu(false)} 
+          />
+        )}
+
         {/* Neomorphic Header */}
         <View style={styles.headerContainer}>
           <NeoView containerStyle={styles.headerNeo} innerStyle={styles.headerInner} borderRadius={24}>
@@ -180,38 +242,91 @@ export default function ChatScreen() {
 
         {/* Neomorphic Input Area */}
         <View style={[styles.bottomContainer, { paddingBottom: isKeyboardVisible ? 12 : Math.max(insets.bottom + 8, 20) }]}>
-          <NeoView containerStyle={styles.inputWrapper} innerStyle={styles.inputInner} borderRadius={28}>
-            
-            <TouchableOpacity style={styles.mediaButton}>
-              <Ionicons name="add" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
+          
+          {/* Centered Microphone Button */}
+          {showMic && (
+            <View style={styles.micWrapper}>
+              <TouchableOpacity>
+                <NeoView containerStyle={styles.micNeo} innerStyle={styles.micInner} borderRadius={44}>
+                  <Ionicons name="mic" size={42} color="#FFFFFF" />
+                </NeoView>
+              </TouchableOpacity>
+            </View>
+          )}
 
-            <TextInput
-              style={styles.textInput}
-              placeholder="Message..."
-              placeholderTextColor={TEXT_MUTED}
-              value={inputText}
-              onChangeText={setInputText}
-              multiline
-              maxLength={500}
-              editable={isBotOnline}
-            />
-            
-            <TouchableOpacity
-              style={styles.sendButtonArea}
-              onPress={handleSend}
-              disabled={!inputText.trim() || !isBotOnline}
-            >
-              <NeoView containerStyle={styles.sendNeo} innerStyle={[styles.sendInner, (!inputText.trim() || !isBotOnline) && styles.sendInnerDisabled]} borderRadius={20}>
-                <Ionicons 
-                  name="send" 
-                  size={16} 
-                  color="#FFFFFF" 
-                  style={{ marginLeft: 2 }}
-                />
-              </NeoView>
-            </TouchableOpacity>
-          </NeoView>
+          <View style={styles.inputGroup}>
+            {/* Options Menu Popup */}
+            {showMenu && (
+              <View style={styles.menuWrapper}>
+                <NeoView containerStyle={styles.menuNeo} innerStyle={styles.menuInner} borderRadius={16}>
+                  <TouchableOpacity 
+                    style={styles.menuItem} 
+                    onPress={() => {
+                      setIsConversationMode(true);
+                      setShowMenu(false);
+                    }}
+                  >
+                    <Ionicons name="mic-outline" size={20} color={RED_ACCENT} />
+                    <Text style={styles.menuText}>Conversation Mode</Text>
+                  </TouchableOpacity>
+
+                  {/* Add Camera Option */}
+                  <TouchableOpacity 
+                    style={[styles.menuItem, { marginTop: 16 }]} 
+                    onPress={handleCamera}
+                  >
+                    <Ionicons name="camera-outline" size={20} color={RED_ACCENT} />
+                    <Text style={styles.menuText}>Camera</Text>
+                  </TouchableOpacity>
+
+                </NeoView>
+              </View>
+            )}
+
+            <NeoView containerStyle={styles.inputWrapper} innerStyle={styles.inputInner} borderRadius={28}>
+              
+              <TouchableOpacity 
+                style={styles.mediaButton} 
+                onPress={() => {
+                  setShowMenu(!showMenu);
+                  Keyboard.dismiss();
+                }}
+              >
+                <Ionicons name={showMenu ? "close" : "add"} size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+
+              <TextInput
+                style={styles.textInput}
+                placeholder="Message..."
+                placeholderTextColor={TEXT_MUTED}
+                value={inputText}
+                onChangeText={setInputText}
+                multiline
+                maxLength={500}
+                editable={isBotOnline}
+                onFocus={() => {
+                  setIsFocused(true);
+                  setShowMenu(false);
+                }}
+                onBlur={() => setIsFocused(false)}
+              />
+              
+              <TouchableOpacity
+                style={styles.sendButtonArea}
+                onPress={handleSend}
+                disabled={!inputText.trim() || !isBotOnline}
+              >
+                <NeoView containerStyle={styles.sendNeo} innerStyle={[styles.sendInner, (!inputText.trim() || !isBotOnline) && styles.sendInnerDisabled]} borderRadius={20}>
+                  <Ionicons 
+                    name="send" 
+                    size={16} 
+                    color="#FFFFFF" 
+                    style={{ marginLeft: 2 }}
+                  />
+                </NeoView>
+              </TouchableOpacity>
+            </NeoView>
+          </View>
         </View>
 
       </KeyboardAvoidingView>
@@ -223,21 +338,28 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG_COLOR },
   keyboardView: { flex: 1 },
   
-  /* MAXED OUT SHADOWS */
+  /* OVERLAY FOR CLICK-AWAY MENU DISMISSAL */
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9,
+    elevation: 9,
+  },
+
+  /* HEAVILY MAXED OUT SHADOWS */
   neoDark: {
     backgroundColor: BG_COLOR,
-    shadowColor: '#8C9CB0',
-    shadowOffset: { width: 12, height: 12 },
+    shadowColor: '#7A8C9E', // Darker gray-blue for much stronger dark shadow
+    shadowOffset: { width: 16, height: 16 }, // Pushed out further
     shadowOpacity: 1,
-    shadowRadius: 16,
-    elevation: 15,
+    shadowRadius: 20, // More blur to spread the darkness
+    elevation: 20, // Increased for Android
   },
   neoLight: {
     backgroundColor: BG_COLOR,
     shadowColor: '#FFFFFF',
-    shadowOffset: { width: -12, height: -12 },
+    shadowOffset: { width: -16, height: -16 }, // Pushed out further
     shadowOpacity: 1,
-    shadowRadius: 16,
+    shadowRadius: 20, // More blur to spread the light
   },
 
   headerContainer: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 },
@@ -284,8 +406,72 @@ const styles = StyleSheet.create({
   messageText: { fontSize: 16, lineHeight: 22 },
   userText: { color: '#FFFFFF', fontWeight: '600' },
   botText: { color: TEXT_DARK },
+  messageImage: { 
+    width: 220, 
+    height: 220, 
+    borderRadius: 14, // Fits nicely inside the bubble
+  },
 
-  bottomContainer: { paddingHorizontal: 16, paddingTop: 8 },
+  bottomContainer: { paddingHorizontal: 16, paddingTop: 8, zIndex: 10 },
+  
+  /* Input Group to correctly relative-position the menu */
+  inputGroup: {
+    width: '100%',
+    position: 'relative',
+  },
+
+  /* Menu Styles */
+  menuWrapper: {
+    position: 'absolute',
+    bottom: '100%',
+    marginBottom: 16,
+    left: 0,
+    zIndex: 100,
+    elevation: 24, // Ensure it floats way above
+  },
+  menuNeo: {
+    shadowColor: '#7A8C9E', // Stronger shadow
+    shadowOffset: { width: 8, height: 8 }, // Pushed out further
+    shadowOpacity: 1,
+    shadowRadius: 14,
+  },
+  menuInner: {
+    backgroundColor: BG_COLOR,
+    paddingHorizontal: 16,
+    paddingVertical: 16, // slightly increased for two items
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuText: {
+    marginLeft: 10,
+    fontSize: 15,
+    fontWeight: '700',
+    color: TEXT_DARK,
+  },
+
+  /* Mic Styles */
+  micWrapper: {
+    alignItems: 'center',
+    marginBottom: 30, // Increased gap slightly for huge shadow
+  },
+  micNeo: {
+    shadowColor: '#7A8C9E', // Stronger shadow
+    shadowOffset: { width: 14, height: 14 }, // Pushed out further
+    shadowOpacity: 1,
+    shadowRadius: 20,
+  },
+  micInner: {
+    width: 88, 
+    height: 88, 
+    backgroundColor: RED_ACCENT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3, 
+    borderColor: BG_COLOR,
+  },
+
   inputWrapper: { width: '100%' },
   inputInner: { 
     flexDirection: 'row', alignItems: 'flex-end', 
@@ -293,16 +479,18 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: RED_ACCENT
   },
   mediaButton: { 
-    marginBottom: 8, marginRight: 8, width: 36, height: 36, 
+    marginBottom: 2, marginRight: 8, width: 36, height: 36, 
     justifyContent: 'center', alignItems: 'center',
     backgroundColor: RED_ACCENT,
     borderRadius: 18
   },
   textInput: {
     flex: 1, minHeight: 40, maxHeight: 120, fontSize: 16, 
-    color: TEXT_DARK, paddingVertical: 10, paddingHorizontal: 4
+    color: TEXT_DARK, 
+    paddingTop: 10, paddingBottom: 10, paddingHorizontal: 4,
+    textAlignVertical: 'center'
   },
-  sendButtonArea: { marginBottom: 6, marginLeft: 8 },
+  sendButtonArea: { marginBottom: 0, marginLeft: 8 },
   sendNeo: {},
   sendInner: { 
     width: 40, height: 40, justifyContent: 'center', alignItems: 'center',
