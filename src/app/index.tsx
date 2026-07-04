@@ -539,7 +539,10 @@ const renderMessage = ({ item }: { item: Message }) => {
           <NeoView containerStyle={styles.headerNeo} innerStyle={styles.headerInner} borderRadius={24}>
             <View style={styles.headerLeft}>
               <NeoView containerStyle={styles.logoOuter} innerStyle={styles.logoInner} borderRadius={22}>
-                <Text style={styles.logoText}>AI</Text>
+              <Image 
+                source={require('../../assets/expo.icon/Assets/LightHaus.jpeg')} 
+                style={styles.headerLogoImage} 
+              />
               </NeoView>
               <View>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -666,6 +669,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 20, // More blur to spread the light
   },
+  
+  headerLogoImage: {
+  width: 44,
+  height: 44,
+  borderRadius: 22,   // same as the circle container
+  resizeMode: 'cover',
+},
 
   headerContainer: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 },
   headerNeo: { width: '100%' },
