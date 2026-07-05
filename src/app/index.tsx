@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
   
   /* OVERLAY FOR CLICK-AWAY MENU DISMISSAL */
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 9,
     elevation: 9,
   },
